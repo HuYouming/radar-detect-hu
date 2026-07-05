@@ -1,0 +1,103 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is the **RoboMaster 2026 Radar Station** software for HUST (Huazhong University of Science and Technology). A radar station is a fixed elevated robot that uses a wide-angle industrial camera and LiDAR to detect and track all robots on the competition field, localize them in 3D world coordinates, and broadcast their positions to allied robots over serial.
+
+## Runtime Environment
+
+**Two-repo dependency**: This repo (`Hust_Radar_2026`) imports from a sibling repo (`Hust_Radar_2025`). The `communication.Messager`, `Log.Log` modules, and `./configs/*.yaml` config files all resolve relative to `Hust_Radar_2025`. The working directory at runtime must be `/home/py/Hust_Radar_2025`, or `PYTHONPATH` must include it.
+
+**Environment**: `conda activate Radar`, then `source /opt/ros/noetic/setup.bash` before running anything.
+
+## Running the System
+
+**Full competition launch** (opens 5 gnome-terminal windows):
+```bash
+cd /home/py/Hust_Radar_2026
+bash 26main.sh
+```
+
+**Manual single-process run** (from `Hust_Radar_2025` working dir):
+```bash
+cd /home/py/Hust_Radar_2025
+python3 ../Hust_Radar_2026/26_main.py
+```
+
+**Entry points**:
+- `26_main.py` — 2026 season, vision-only localization (primary)
+- `25_main.py` — 2025 season, full LiDAR+vision fusion
+- `25main_without_lidar.py` — 2025 season, vision-only fallback
+
+**ROS-only startup** (LiDAR stack only):
+```bash
+bash start_ros.sh  # starts roscore, livox_ros_driver, pclmatcher
+```
+
+## Architecture
+
+### Thread Model
+
+Three concurrent subsystems sharing a central data store (`CarList`):
+
+```
+[Hikrobot Camera / Video file]
+       │
+       ▼
+[detect/Detector.py] ── daemon thread ──► YOLO stage1 track (ByteTrack) → stage2 classify armor
+       │  _results (written by detector, read by main)
+       ▼
+[26_main.py main loop] ~20 fps
+       ├── filter by team color (my_color from config)
+       ├── main_utilities.get_new_box() → shift detection to chassis bottom
+       ├── Lidar/Converter.detection_main() → world XYZ
+       ├── Car/CarList.update_car_info() → per-car state with lifespan decay
+       └── communication/Messager → serial send to allied robots + sentinel alerts
+
+[Lidar/Lidar_25.py] ── ROS spin thread ──► /centroid_points subscriber → centroidsQueue
+       │  (only used in 25_main.py)
+       ▼
+       └── get_all_pc() → merged point cloud → Converter.detection_main(point_cloud=pc_all)
+```
+
+### Key Modules
+
+- **`detect/Detector.py`** — Two-stage YOLO inference in a daemon thread. Stage 1: ByteTrack detection at 4024×3036. Stage 2: ROI crop to classify robot label (R1-R5/R7, B1-B5/B7). Vote accumulation per track ID stabilizes classification across frames.
+- **`detect/Capture.py`** — Hikrobot MV USB3 industrial camera driver (MvImport SDK).
+- **`detect/Video.py`** — Drop-in `VideoCapture` replacement for offline testing with recorded video.
+- **`Lidar/Converter.py`** — Core coordinate transformation: camera intrinsics + extrinsics → world XYZ. Calls `Vision_Locator` when no LiDAR is available.
+- **`Lidar/vision_locator.py`** — Perspective transform-based depth estimation using known field landmarks. Pre-computes homography matrices per height plane from `rm25_points.yaml`.
+- **`Lidar/PointCloud.py`** — Ring-buffer point cloud queue; DBSCAN clustering via open3d to extract robot centroids.
+- **`Lidar/fast_search.py`** — GPU-accelerated (CuPy/Torch) spatial search for matching point cloud to 2D bounding boxes.
+- **`Car/Car.py`** — Per-robot state machine (`Car`) and thread-safe collection (`CarList`, 12 robots). Tracks field XYZ, trust flag, and lifespan countdown for stale detections.
+- **`Counter/init_angle_sender.py`** — Aerial drone detection and tracking. Processes LiDAR against a pre-loaded map PCD to detect the drone, computes yaw/pitch for the sentry cannon, sends over serial.
+- **`Radio/radar_udp_receiver.py`** — Decodes referee system UDP broadcast (binary protocol with CRC8).
+- **`PointTracker/Tracker.py`** — 2D constant-velocity Kalman filter tracker for associating point cloud detections in field coordinates across frames.
+- **`main_utilities.py`** — Shared `get_new_box()` (shifts detection to chassis bottom) and `visualize()` (top-down field map rendering).
+
+### Configuration Files (in `../Hust_Radar_2025/configs/`)
+
+| File | Key settings |
+|---|---|
+| `main_config.yaml` | `global.my_color`, `global.is_debug`, `car.life_span`, `communication.port` (`/dev/ttyUSB0`), baud rate |
+| `detector_config.yaml` | YOLO model paths, confidence thresholds, vote decay interval, `is_record` |
+| `converter_config.yaml` | Camera intrinsics (fx, fy, cx, cy), extrinsic R+T, DBSCAN params |
+| `bin_cam_config.yaml` | Camera hardware: 4024×3036, exposure, gain, serial numbers |
+
+Model weights are in `weights/` (`new_stage1.pt`, `stage3.pt`).
+
+## Key External Dependencies
+
+- **ROS Noetic** — LiDAR topics, multi-node coordination
+- **ultralytics (YOLOv8)** — detection and tracking
+- **open3d** — DBSCAN clustering, PCD file loading
+- **cupy / torch** — GPU point cloud search (NVIDIA GPU required)
+- **Hikrobot MvImport SDK** — camera driver (in `stereo_camera/MvImport/`)
+- **Livox Mid-70** — solid-state LiDAR via `livox_ros_driver`
+- Serial port `/dev/ttyUSB0` — robot-to-robot communication (wrapped in try/except so system runs without it)
+
+## Season Versioning Convention
+
+Files explicitly named `_25` or `_26` indicate which competition season they belong to (2025 or 2026). The 2026 work is primarily in `26_main.py` and `Counter/init_angle_sender.py`; legacy 2025 code is in `25_main.py` and `Lidar/Lidar_25.py`.

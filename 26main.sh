@@ -1,12 +1,8 @@
 #!/bin/bash
 # filename: 26main_gnome.sh
 
-MAIN_NAME="radar_main"
 SDK_NAME="SDK"
-COUNTER_NAME="drone"
-RADIO_NAME="radio"
 RADIO_ENV="base"
-MAIN_ENV="Radar"
 ROS_DISTRO="noetic"
 LIDAR_PATH="/home/radar/Radar/sdk"
 WORKSPACE_PATH="/home/radar/Radar/code/Hust_Radar_2026"

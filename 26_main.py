@@ -15,7 +15,7 @@ from ruamel.yaml import YAML
 import os
 
 mode = "camera" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
-save_video = True # 是否保存视频
+save_video = False # 是否保存视频
 
 def get_new_box(xyxy,xywh):
     '''

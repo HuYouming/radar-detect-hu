@@ -1,0 +1,10 @@
+ID:
+  red: 6
+  blue: 106
+
+params:
+  eps: 0.4
+  min_points: 10
+  max_height: 5.0
+  min_height: 2.0
+  publish_rate: 15
