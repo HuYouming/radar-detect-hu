@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"HOME: $HOME\" && echo \"PWD: $PWD\" && ls -la ~/ 2>/dev/null | head -40)",
+      "Read(//home/py/**)"
+    ]
+  }
+}

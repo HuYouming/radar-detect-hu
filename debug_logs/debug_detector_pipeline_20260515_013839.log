@@ -1,0 +1,810 @@
+2026-05-15 01:38:39 | INFO | debug script start
+2026-05-15 01:38:39 | INFO | argv=['debug_detector_pipeline.py', '--mode', 'video']
+2026-05-15 01:38:39 | INFO | log_path=./debug_logs/debug_detector_pipeline_20260515_013839.log
+2026-05-15 01:38:39 | INFO | converter init begin, this step may require interactive point selection
+2026-05-15 01:38:39 | INFO | capture.get_frame ok in 0.131s, current_frame=1, shape=(3000, 4096, 3)
+2026-05-15 01:38:51 | INFO | converter.camera_to_field_init ok in 12.107s
+2026-05-15 01:38:51 | INFO | video rewound to frame 0 after converter init
+2026-05-15 01:38:51 | INFO | messager init success
+2026-05-15 01:38:51 | INFO | ===== sync probe start =====
+2026-05-15 01:38:51 | INFO | capture.get_frame ok in 0.054s, current_frame=1, shape=(3000, 4096, 3)
+2026-05-15 01:38:51 | INFO | sync get_frame[0] ok in 0.055s
+2026-05-15 01:38:51 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.693s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.074s
+2026-05-15 01:38:52 | INFO | infer total cost 0.768s
+2026-05-15 01:38:52 | INFO | sync infer[0] ok in 0.768s
+2026-05-15 01:38:52 | INFO | sync probe frame 0 -> result_img=True results_len=4
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=2, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | sync get_frame[1] ok in 0.006s
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.009s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.013s
+2026-05-15 01:38:52 | INFO | sync infer[1] ok in 0.014s
+2026-05-15 01:38:52 | INFO | sync probe frame 1 -> result_img=True results_len=4
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=3, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | sync get_frame[2] ok in 0.006s
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.007s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.012s
+2026-05-15 01:38:52 | INFO | sync infer[2] ok in 0.012s
+2026-05-15 01:38:52 | INFO | sync probe frame 2 -> result_img=True results_len=4
+2026-05-15 01:38:52 | INFO | ===== sync probe end =====
+2026-05-15 01:38:52 | INFO | video rewound to frame 0 before async probe
+2026-05-15 01:38:52 | INFO | ===== async probe start =====
+2026-05-15 01:38:52 | INFO | detect_thread started
+2026-05-15 01:38:52 | INFO | async poll thread_alive=True result_ready=False last_stage=infer:end last_frame_index=3
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.050s, current_frame=1, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.027s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.021s
+2026-05-15 01:38:52 | INFO | infer total cost 0.049s
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=2, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.008s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.012s
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=3, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.007s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.012s
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=4, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.008s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.012s
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=5, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.008s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.012s
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=6, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | track_infer cost 0.008s
+2026-05-15 01:38:52 | INFO | classify_infer cost 0.004s
+2026-05-15 01:38:52 | INFO | infer total cost 0.012s
+2026-05-15 01:38:52 | INFO | capture.get_frame ok in 0.006s, current_frame=7, shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:52 | INFO | async poll thread_alive=True result_ready=True last_stage=track_infer:start last_frame_index=7
+2026-05-15 01:38:52 | INFO | async first result in 0.200s, result_img_shape=(3000, 4096, 3), results_len=4
+2026-05-15 01:38:52 | INFO | ===== async probe end =====
+2026-05-15 01:38:52 | INFO | async probe success, first_result_time=0.200s
+2026-05-15 01:38:52 | INFO | messager.start cost 0.000s
+2026-05-15 01:38:52 | INFO | messager.start ok in 0.000s
+2026-05-15 01:38:52 | INFO | ===== full main loop probe start =====
+2026-05-15 01:38:52 | INFO | loop 0 avg_fps=349525.333
+2026-05-15 01:38:52 | INFO | loop 0 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:52 | INFO | loop 0 result 0 track_id=1 label=B1 xywh=[3593.9526, 1494.3513, 171.67712, 149.54395]
+2026-05-15 01:38:52 | INFO | converter.detection_main cost 0.009s result=[12.519542, 0.2724428176879883, 0.35, 1778780332.5519392]
+2026-05-15 01:38:52 | INFO | vision_locator.post_process cost 0.000s result=[15.48045825958252, 14.727557182312012, 0.35]
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:52 | INFO | loop 0 result 0 packaged car_id=101 center=[15.48045825958252, 14.727557182312012, 0.35] cost=0.010s
+2026-05-15 01:38:52 | INFO | loop 0 result 1 track_id=2 label=R3 xywh=[2639.2754, 1482.8184, 128.3153, 122.107666]
+2026-05-15 01:38:52 | INFO | converter.detection_main cost 0.000s result=[13.771945, 5.133763313293457, 0.44999999999999996, 1778780332.5519392]
+2026-05-15 01:38:52 | INFO | vision_locator.post_process cost 0.000s result=[14.228055000305176, 9.866236686706543, 0.44999999999999996]
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:52 | INFO | loop 0 result 1 packaged car_id=3 center=[14.228055000305176, 9.866236686706543, 0.44999999999999996] cost=0.001s
+2026-05-15 01:38:52 | INFO | loop 0 result 2 track_id=3 label=B3 xywh=[3197.0771, 1482.3757, 114.056885, 126.89917]
+2026-05-15 01:38:52 | INFO | converter.detection_main cost 0.000s result=[13.367811, 2.212820053100586, 0.15, 1778780332.5519392]
+2026-05-15 01:38:52 | INFO | vision_locator.post_process cost 0.000s result=[14.63218879699707, 12.787179946899414, 0.15]
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:52 | INFO | loop 0 result 2 packaged car_id=103 center=[14.63218879699707, 12.787179946899414, 0.15] cost=0.001s
+2026-05-15 01:38:52 | INFO | loop 0 result 3 track_id=4 label=NULL xywh=[2731.8513, 1435.2662, 111.454346, 128.78271]
+2026-05-15 01:38:52 | INFO | loop 0 result 3 skipped because label=NULL
+2026-05-15 01:38:52 | INFO | vision_locator.visualize cost 0.023s points=3
+2026-05-15 01:38:52 | INFO | track_infer cost 0.050s
+2026-05-15 01:38:52 | INFO | loop 0 visualize ok in 0.064s
+2026-05-15 01:38:52 | INFO | loop 0 car_list.update_car_info ok in 0.041s
+2026-05-15 01:38:52 | INFO | loop 0 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:52 | INFO | loop 0 split infos my=2 enemy=6 all_detections=1
+2026-05-15 01:38:52 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:52 | INFO | loop 0 messager.update_enemy_car_infos ok in 0.010s
+2026-05-15 01:38:52 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:52 | INFO | loop 0 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:38:52 | INFO | loop 0 finished in 0.195s
+2026-05-15 01:38:52 | INFO | loop 1 avg_fps=174763.918
+2026-05-15 01:38:52 | INFO | loop 1 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:52 | INFO | loop 1 result 0 track_id=1 label=B1 xywh=[3593.9526, 1494.3513, 171.67712, 149.54395]
+2026-05-15 01:38:52 | INFO | converter.detection_main cost 0.000s result=[12.519542, 0.2724428176879883, 0.35, 1778780332.5519392]
+2026-05-15 01:38:52 | INFO | vision_locator.post_process cost 0.000s result=[15.48045825958252, 14.727557182312012, 0.35]
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:52 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:53 | INFO | loop 1 result 0 packaged car_id=101 center=[15.48045825958252, 14.727557182312012, 0.35] cost=0.045s
+2026-05-15 01:38:53 | INFO | loop 1 result 1 track_id=2 label=R3 xywh=[2639.2754, 1482.8184, 128.3153, 122.107666]
+2026-05-15 01:38:53 | INFO | converter.detection_main cost 0.005s result=[13.771945, 5.133763313293457, 0.44999999999999996, 1778780332.5519392]
+2026-05-15 01:38:53 | INFO | vision_locator.post_process cost 0.000s result=[14.228055000305176, 9.866236686706543, 0.44999999999999996]
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:53 | INFO | loop 1 result 1 packaged car_id=3 center=[14.228055000305176, 9.866236686706543, 0.44999999999999996] cost=0.037s
+2026-05-15 01:38:53 | INFO | loop 1 result 2 track_id=3 label=B3 xywh=[3197.0771, 1482.3757, 114.056885, 126.89917]
+2026-05-15 01:38:53 | INFO | converter.detection_main cost 0.005s result=[13.367811, 2.212820053100586, 0.15, 1778780332.5519392]
+2026-05-15 01:38:53 | INFO | vision_locator.post_process cost 0.000s result=[14.63218879699707, 12.787179946899414, 0.15]
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:53 | INFO | loop 1 result 2 packaged car_id=103 center=[14.63218879699707, 12.787179946899414, 0.15] cost=0.026s
+2026-05-15 01:38:53 | INFO | loop 1 result 3 track_id=4 label=NULL xywh=[2731.8513, 1435.2662, 111.454346, 128.78271]
+2026-05-15 01:38:53 | INFO | loop 1 result 3 skipped because label=NULL
+2026-05-15 01:38:53 | INFO | vision_locator.visualize cost 0.056s points=3
+2026-05-15 01:38:53 | INFO | loop 1 visualize ok in 0.063s
+2026-05-15 01:38:53 | INFO | loop 1 car_list.update_car_info ok in 0.000s
+2026-05-15 01:38:53 | INFO | loop 1 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:53 | INFO | loop 1 split infos my=2 enemy=6 all_detections=2
+2026-05-15 01:38:53 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:53 | INFO | loop 1 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:38:53 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:53 | INFO | loop 1 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:38:53 | INFO | loop 1 finished in 0.218s
+2026-05-15 01:38:53 | INFO | loop 2 avg_fps=116510.075
+2026-05-15 01:38:53 | INFO | loop 2 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:53 | INFO | loop 2 result 0 track_id=1 label=B1 xywh=[3593.9526, 1494.3513, 171.67712, 149.54395]
+2026-05-15 01:38:53 | INFO | converter.detection_main cost 0.025s result=[12.519542, 0.2724428176879883, 0.35, 1778780332.5519392]
+2026-05-15 01:38:53 | INFO | vision_locator.post_process cost 0.000s result=[15.48045825958252, 14.727557182312012, 0.35]
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:53 | INFO | loop 2 result 0 packaged car_id=101 center=[15.48045825958252, 14.727557182312012, 0.35] cost=0.112s
+2026-05-15 01:38:53 | INFO | loop 2 result 1 track_id=2 label=R3 xywh=[2639.2754, 1482.8184, 128.3153, 122.107666]
+2026-05-15 01:38:53 | INFO | converter.detection_main cost 0.005s result=[13.771945, 5.133763313293457, 0.44999999999999996, 1778780332.5519392]
+2026-05-15 01:38:53 | INFO | vision_locator.post_process cost 0.000s result=[14.228055000305176, 9.866236686706543, 0.44999999999999996]
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:53 | INFO | loop 2 result 1 packaged car_id=3 center=[14.228055000305176, 9.866236686706543, 0.44999999999999996] cost=0.041s
+2026-05-15 01:38:53 | INFO | loop 2 result 2 track_id=3 label=B3 xywh=[3197.0771, 1482.3757, 114.056885, 126.89917]
+2026-05-15 01:38:53 | INFO | converter.detection_main cost 0.000s result=[13.367811, 2.212820053100586, 0.15, 1778780332.5519392]
+2026-05-15 01:38:53 | INFO | vision_locator.post_process cost 0.000s result=[14.63218879699707, 12.787179946899414, 0.15]
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:53 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:53 | INFO | loop 2 result 2 packaged car_id=103 center=[14.63218879699707, 12.787179946899414, 0.15] cost=0.042s
+2026-05-15 01:38:53 | INFO | loop 2 result 3 track_id=4 label=NULL xywh=[2731.8513, 1435.2662, 111.454346, 128.78271]
+2026-05-15 01:38:53 | INFO | loop 2 result 3 skipped because label=NULL
+2026-05-15 01:38:53 | INFO | vision_locator.visualize cost 0.061s points=3
+2026-05-15 01:38:53 | INFO | loop 2 visualize ok in 0.066s
+2026-05-15 01:38:53 | INFO | loop 2 car_list.update_car_info ok in 0.000s
+2026-05-15 01:38:53 | INFO | loop 2 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:53 | INFO | loop 2 split infos my=2 enemy=6 all_detections=3
+2026-05-15 01:38:53 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:53 | INFO | loop 2 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:38:53 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:53 | INFO | loop 2 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:38:53 | INFO | loop 2 finished in 0.399s
+2026-05-15 01:38:54 | INFO | loop 3 avg_fps=87382.966
+2026-05-15 01:38:54 | INFO | loop 3 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:54 | INFO | loop 3 result 0 track_id=1 label=B1 xywh=[3593.9526, 1494.3513, 171.67712, 149.54395]
+2026-05-15 01:38:54 | INFO | converter.detection_main cost 0.020s result=[12.519542, 0.2724428176879883, 0.35, 1778780332.5519392]
+2026-05-15 01:38:54 | INFO | vision_locator.post_process cost 0.000s result=[15.48045825958252, 14.727557182312012, 0.35]
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:54 | INFO | loop 3 result 0 packaged car_id=101 center=[15.48045825958252, 14.727557182312012, 0.35] cost=0.087s
+2026-05-15 01:38:54 | INFO | loop 3 result 1 track_id=2 label=R3 xywh=[2639.2754, 1482.8184, 128.3153, 122.107666]
+2026-05-15 01:38:54 | INFO | converter.detection_main cost 0.005s result=[13.771945, 5.133763313293457, 0.44999999999999996, 1778780332.5519392]
+2026-05-15 01:38:54 | INFO | vision_locator.post_process cost 0.000s result=[14.228055000305176, 9.866236686706543, 0.44999999999999996]
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:54 | INFO | loop 3 result 1 packaged car_id=3 center=[14.228055000305176, 9.866236686706543, 0.44999999999999996] cost=0.066s
+2026-05-15 01:38:54 | INFO | loop 3 result 2 track_id=3 label=B3 xywh=[3197.0771, 1482.3757, 114.056885, 126.89917]
+2026-05-15 01:38:54 | INFO | converter.detection_main cost 0.000s result=[13.367811, 2.212820053100586, 0.15, 1778780332.5519392]
+2026-05-15 01:38:54 | INFO | vision_locator.post_process cost 0.000s result=[14.63218879699707, 12.787179946899414, 0.15]
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:54 | INFO | loop 3 result 2 packaged car_id=103 center=[14.63218879699707, 12.787179946899414, 0.15] cost=0.001s
+2026-05-15 01:38:54 | INFO | loop 3 result 3 track_id=4 label=NULL xywh=[2731.8513, 1435.2662, 111.454346, 128.78271]
+2026-05-15 01:38:54 | INFO | loop 3 result 3 skipped because label=NULL
+2026-05-15 01:38:54 | INFO | vision_locator.visualize cost 0.056s points=3
+2026-05-15 01:38:54 | INFO | loop 3 visualize ok in 0.062s
+2026-05-15 01:38:54 | INFO | loop 3 car_list.update_car_info ok in 0.000s
+2026-05-15 01:38:54 | INFO | loop 3 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:54 | INFO | loop 3 split infos my=2 enemy=6 all_detections=4
+2026-05-15 01:38:54 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:54 | INFO | loop 3 messager.update_enemy_car_infos ok in 0.020s
+2026-05-15 01:38:54 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:54 | INFO | loop 3 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:38:54 | INFO | loop 3 finished in 0.368s
+2026-05-15 01:38:54 | INFO | loop 4 avg_fps=69906.716
+2026-05-15 01:38:54 | INFO | loop 4 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:54 | INFO | loop 4 result 0 track_id=1 label=B1 xywh=[3593.9526, 1494.3513, 171.67712, 149.54395]
+2026-05-15 01:38:54 | INFO | converter.detection_main cost 0.002s result=[12.519542, 0.2724428176879883, 0.35, 1778780332.5519392]
+2026-05-15 01:38:54 | INFO | vision_locator.post_process cost 0.000s result=[15.48045825958252, 14.727557182312012, 0.35]
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=21.369792429617718
+2026-05-15 01:38:54 | INFO | loop 4 result 0 packaged car_id=101 center=[15.48045825958252, 14.727557182312012, 0.35] cost=0.007s
+2026-05-15 01:38:54 | INFO | loop 4 result 1 track_id=2 label=R3 xywh=[2639.2754, 1482.8184, 128.3153, 122.107666]
+2026-05-15 01:38:54 | INFO | converter.detection_main cost 0.000s result=[13.771945, 5.133763313293457, 0.44999999999999996, 1778780332.5519392]
+2026-05-15 01:38:54 | INFO | vision_locator.post_process cost 0.000s result=[14.228055000305176, 9.866236686706543, 0.44999999999999996]
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=17.32000795178291
+2026-05-15 01:38:54 | INFO | loop 4 result 1 packaged car_id=3 center=[14.228055000305176, 9.866236686706543, 0.44999999999999996] cost=0.051s
+2026-05-15 01:38:54 | INFO | loop 4 result 2 track_id=3 label=B3 xywh=[3197.0771, 1482.3757, 114.056885, 126.89917]
+2026-05-15 01:38:54 | INFO | converter.detection_main cost 0.000s result=[13.367811, 2.212820053100586, 0.15, 1778780332.5519392]
+2026-05-15 01:38:54 | INFO | vision_locator.post_process cost 0.000s result=[14.63218879699707, 12.787179946899414, 0.15]
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:54 | INFO | converter.get_distance cost 0.000s result=19.432843847089213
+2026-05-15 01:38:54 | INFO | loop 4 result 2 packaged car_id=103 center=[14.63218879699707, 12.787179946899414, 0.15] cost=0.061s
+2026-05-15 01:38:54 | INFO | loop 4 result 3 track_id=4 label=NULL xywh=[2731.8513, 1435.2662, 111.454346, 128.78271]
+2026-05-15 01:38:54 | INFO | loop 4 result 3 skipped because label=NULL
+2026-05-15 01:38:54 | INFO | classify_infer cost 1.928s
+2026-05-15 01:38:54 | INFO | vision_locator.visualize cost 0.061s points=3
+2026-05-15 01:38:54 | INFO | loop 4 visualize ok in 0.062s
+2026-05-15 01:38:54 | INFO | loop 4 car_list.update_car_info ok in 0.000s
+2026-05-15 01:38:54 | INFO | loop 4 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:54 | INFO | loop 4 split infos my=2 enemy=6 all_detections=5
+2026-05-15 01:38:54 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:54 | INFO | loop 4 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:38:54 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:54 | INFO | loop 4 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:38:54 | INFO | loop 4 finished in 0.208s
+2026-05-15 01:38:54 | INFO | infer total cost 2.274s
+2026-05-15 01:38:54 | INFO | capture.get_frame ok in 0.020s, current_frame=8, shape=(3000, 4096, 3)
+2026-05-15 01:38:54 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:55 | INFO | loop 5 avg_fps=58255.996
+2026-05-15 01:38:55 | INFO | loop 5 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:55 | INFO | loop 5 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:55 | INFO | converter.detection_main cost 0.000s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:55 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:55 | INFO | loop 5 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.041s
+2026-05-15 01:38:55 | INFO | loop 5 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:55 | INFO | converter.detection_main cost 0.005s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:55 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:55 | INFO | loop 5 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.051s
+2026-05-15 01:38:55 | INFO | loop 5 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:55 | INFO | converter.detection_main cost 0.000s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:55 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:55 | INFO | loop 5 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.051s
+2026-05-15 01:38:55 | INFO | loop 5 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:55 | INFO | loop 5 result 3 skipped because label=NULL
+2026-05-15 01:38:55 | INFO | vision_locator.visualize cost 0.036s points=3
+2026-05-15 01:38:55 | INFO | loop 5 visualize ok in 0.047s
+2026-05-15 01:38:55 | INFO | loop 5 car_list.update_car_info ok in 0.031s
+2026-05-15 01:38:55 | INFO | loop 5 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:55 | INFO | loop 5 split infos my=2 enemy=6 all_detections=6
+2026-05-15 01:38:55 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:55 | INFO | loop 5 messager.update_enemy_car_infos ok in 0.015s
+2026-05-15 01:38:55 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:55 | INFO | loop 5 messager.update_our_car_infos ok in 0.010s
+2026-05-15 01:38:55 | INFO | loop 5 finished in 0.358s
+2026-05-15 01:38:55 | INFO | loop 6 avg_fps=49933.953
+2026-05-15 01:38:55 | INFO | loop 6 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:55 | INFO | loop 6 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:55 | INFO | converter.detection_main cost 0.005s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:55 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:55 | INFO | loop 6 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.082s
+2026-05-15 01:38:55 | INFO | loop 6 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:55 | INFO | converter.detection_main cost 0.005s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:55 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:55 | INFO | loop 6 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.082s
+2026-05-15 01:38:55 | INFO | loop 6 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:55 | INFO | converter.detection_main cost 0.005s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:55 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:55 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:55 | INFO | loop 6 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.020s
+2026-05-15 01:38:55 | INFO | loop 6 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:55 | INFO | loop 6 result 3 skipped because label=NULL
+2026-05-15 01:38:55 | INFO | vision_locator.visualize cost 0.026s points=3
+2026-05-15 01:38:55 | INFO | loop 6 visualize ok in 0.036s
+2026-05-15 01:38:55 | INFO | loop 6 car_list.update_car_info ok in 0.005s
+2026-05-15 01:38:55 | INFO | loop 6 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:55 | INFO | loop 6 split infos my=2 enemy=6 all_detections=7
+2026-05-15 01:38:55 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:55 | INFO | loop 6 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:38:55 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:55 | INFO | loop 6 messager.update_our_car_infos ok in 0.015s
+2026-05-15 01:38:55 | INFO | loop 6 finished in 0.374s
+2026-05-15 01:38:56 | INFO | loop 7 avg_fps=43692.419
+2026-05-15 01:38:56 | INFO | loop 7 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:56 | INFO | loop 7 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:56 | INFO | converter.detection_main cost 0.000s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:56 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:56 | INFO | loop 7 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.001s
+2026-05-15 01:38:56 | INFO | loop 7 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:56 | INFO | converter.detection_main cost 0.000s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:56 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:56 | INFO | loop 7 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.000s
+2026-05-15 01:38:56 | INFO | loop 7 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:56 | INFO | converter.detection_main cost 0.000s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:56 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:56 | INFO | track_infer cost 1.325s
+2026-05-15 01:38:56 | INFO | loop 7 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.047s
+2026-05-15 01:38:56 | INFO | loop 7 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:56 | INFO | loop 7 result 3 skipped because label=NULL
+2026-05-15 01:38:56 | INFO | vision_locator.visualize cost 0.042s points=3
+2026-05-15 01:38:56 | INFO | loop 7 visualize ok in 0.047s
+2026-05-15 01:38:56 | INFO | loop 7 car_list.update_car_info ok in 0.000s
+2026-05-15 01:38:56 | INFO | loop 7 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:56 | INFO | loop 7 split infos my=2 enemy=6 all_detections=8
+2026-05-15 01:38:56 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:56 | INFO | loop 7 messager.update_enemy_car_infos ok in 0.005s
+2026-05-15 01:38:56 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:56 | INFO | loop 7 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:38:56 | INFO | loop 7 finished in 0.274s
+2026-05-15 01:38:56 | INFO | loop 8 avg_fps=38837.935
+2026-05-15 01:38:56 | INFO | loop 8 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:56 | INFO | loop 8 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:56 | INFO | converter.detection_main cost 0.031s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:56 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:56 | INFO | loop 8 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.133s
+2026-05-15 01:38:56 | INFO | loop 8 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:56 | INFO | converter.detection_main cost 0.011s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:56 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:56 | INFO | loop 8 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.084s
+2026-05-15 01:38:56 | INFO | loop 8 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:56 | INFO | converter.detection_main cost 0.016s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:56 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:56 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:56 | INFO | loop 8 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.048s
+2026-05-15 01:38:56 | INFO | loop 8 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:56 | INFO | loop 8 result 3 skipped because label=NULL
+2026-05-15 01:38:57 | INFO | vision_locator.visualize cost 0.017s points=3
+2026-05-15 01:38:57 | INFO | loop 8 visualize ok in 0.037s
+2026-05-15 01:38:57 | INFO | loop 8 car_list.update_car_info ok in 0.021s
+2026-05-15 01:38:57 | INFO | loop 8 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:57 | INFO | loop 8 split infos my=2 enemy=6 all_detections=9
+2026-05-15 01:38:57 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:57 | INFO | loop 8 messager.update_enemy_car_infos ok in 0.005s
+2026-05-15 01:38:57 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:57 | INFO | loop 8 messager.update_our_car_infos ok in 0.015s
+2026-05-15 01:38:57 | INFO | loop 8 finished in 0.452s
+2026-05-15 01:38:57 | INFO | loop 9 avg_fps=34954.294
+2026-05-15 01:38:57 | INFO | loop 9 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:57 | INFO | loop 9 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:57 | INFO | converter.detection_main cost 0.011s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:57 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:57 | INFO | loop 9 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.043s
+2026-05-15 01:38:57 | INFO | loop 9 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:57 | INFO | converter.detection_main cost 0.000s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:57 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:57 | INFO | loop 9 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.001s
+2026-05-15 01:38:57 | INFO | loop 9 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:57 | INFO | converter.detection_main cost 0.000s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:57 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:57 | INFO | loop 9 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.010s
+2026-05-15 01:38:57 | INFO | loop 9 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:57 | INFO | loop 9 result 3 skipped because label=NULL
+2026-05-15 01:38:57 | INFO | vision_locator.visualize cost 0.046s points=3
+2026-05-15 01:38:57 | INFO | loop 9 visualize ok in 0.057s
+2026-05-15 01:38:57 | INFO | loop 9 car_list.update_car_info ok in 0.005s
+2026-05-15 01:38:57 | INFO | loop 9 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:57 | INFO | loop 9 split infos my=2 enemy=6 all_detections=10
+2026-05-15 01:38:57 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:57 | INFO | loop 9 messager.update_enemy_car_infos ok in 0.010s
+2026-05-15 01:38:57 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:57 | INFO | loop 9 messager.update_our_car_infos ok in 0.015s
+2026-05-15 01:38:57 | INFO | loop 9 finished in 0.263s
+2026-05-15 01:38:57 | INFO | loop 10 avg_fps=1.976
+2026-05-15 01:38:57 | INFO | loop 10 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:57 | INFO | loop 10 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:57 | INFO | converter.detection_main cost 0.000s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:57 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:57 | INFO | loop 10 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.061s
+2026-05-15 01:38:57 | INFO | loop 10 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:57 | INFO | converter.detection_main cost 0.010s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:57 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:57 | INFO | loop 10 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.052s
+2026-05-15 01:38:57 | INFO | loop 10 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:57 | INFO | converter.detection_main cost 0.020s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:57 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:57 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:57 | INFO | loop 10 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.056s
+2026-05-15 01:38:57 | INFO | loop 10 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:57 | INFO | loop 10 result 3 skipped because label=NULL
+2026-05-15 01:38:58 | INFO | vision_locator.visualize cost 0.057s points=3
+2026-05-15 01:38:58 | INFO | loop 10 visualize ok in 0.063s
+2026-05-15 01:38:58 | INFO | loop 10 car_list.update_car_info ok in 0.010s
+2026-05-15 01:38:58 | INFO | loop 10 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:58 | INFO | loop 10 split infos my=2 enemy=6 all_detections=11
+2026-05-15 01:38:58 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:58 | INFO | loop 10 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:38:58 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:58 | INFO | loop 10 messager.update_our_car_infos ok in 0.015s
+2026-05-15 01:38:58 | INFO | loop 10 finished in 0.343s
+2026-05-15 01:38:58 | INFO | loop 11 avg_fps=1.904
+2026-05-15 01:38:58 | INFO | loop 11 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:58 | INFO | loop 11 result 0 track_id=1 label=B1 xywh=[3594.3643, 1494.4565, 172.19763, 150.32397]
+2026-05-15 01:38:58 | INFO | converter.detection_main cost 0.000s result=[12.519143, 0.2690563201904297, 0.35, 1778780332.570073]
+2026-05-15 01:38:58 | INFO | vision_locator.post_process cost 0.000s result=[15.480856895446777, 14.73094367980957, 0.35]
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=21.372415210149356
+2026-05-15 01:38:58 | INFO | loop 11 result 0 packaged car_id=101 center=[15.480856895446777, 14.73094367980957, 0.35] cost=0.013s
+2026-05-15 01:38:58 | INFO | loop 11 result 1 track_id=2 label=R3 xywh=[2639.0378, 1482.4934, 128.45996, 122.34131]
+2026-05-15 01:38:58 | INFO | converter.detection_main cost 0.000s result=[13.772052, 5.134654998779297, 0.44999999999999996, 1778780332.570073]
+2026-05-15 01:38:58 | INFO | vision_locator.post_process cost 0.000s result=[14.227948188781738, 9.865345001220703, 0.44999999999999996]
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=17.319412278012432
+2026-05-15 01:38:58 | INFO | loop 11 result 1 packaged car_id=3 center=[14.227948188781738, 9.865345001220703, 0.44999999999999996] cost=0.001s
+2026-05-15 01:38:58 | INFO | loop 11 result 2 track_id=3 label=B3 xywh=[3196.8818, 1482.3789, 114.258545, 127.22339]
+2026-05-15 01:38:58 | INFO | converter.detection_main cost 0.000s result=[13.36787, 2.2133169174194336, 0.15, 1778780332.570073]
+2026-05-15 01:38:58 | INFO | vision_locator.post_process cost 0.000s result=[14.632129669189453, 12.786683082580566, 0.15]
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=19.43247238285253
+2026-05-15 01:38:58 | INFO | loop 11 result 2 packaged car_id=103 center=[14.632129669189453, 12.786683082580566, 0.15] cost=0.071s
+2026-05-15 01:38:58 | INFO | loop 11 result 3 track_id=4 label=NULL xywh=[2731.98, 1435.2649, 111.483765, 128.78198]
+2026-05-15 01:38:58 | INFO | loop 11 result 3 skipped because label=NULL
+2026-05-15 01:38:58 | INFO | vision_locator.visualize cost 0.066s points=3
+2026-05-15 01:38:58 | INFO | loop 11 visualize ok in 0.067s
+2026-05-15 01:38:58 | INFO | loop 11 car_list.update_car_info ok in 0.000s
+2026-05-15 01:38:58 | INFO | loop 11 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:58 | INFO | loop 11 split infos my=2 enemy=6 all_detections=12
+2026-05-15 01:38:58 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:58 | INFO | loop 11 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:38:58 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:58 | INFO | loop 11 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:38:58 | INFO | loop 11 finished in 0.240s
+2026-05-15 01:38:58 | INFO | classify_infer cost 2.303s
+2026-05-15 01:38:58 | INFO | infer total cost 3.866s
+2026-05-15 01:38:58 | INFO | loop 12 avg_fps=1.890
+2026-05-15 01:38:58 | INFO | capture.get_frame ok in 0.012s, current_frame=9, shape=(3000, 4096, 3)
+2026-05-15 01:38:58 | INFO | loop 12 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:58 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:38:58 | INFO | loop 12 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:38:58 | INFO | converter.detection_main cost 0.005s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:38:58 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:38:58 | INFO | loop 12 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.072s
+2026-05-15 01:38:58 | INFO | loop 12 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:38:58 | INFO | converter.detection_main cost 0.005s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:38:58 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:38:58 | INFO | loop 12 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.047s
+2026-05-15 01:38:58 | INFO | loop 12 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:38:58 | INFO | converter.detection_main cost 0.000s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:38:58 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:38:58 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:38:58 | INFO | loop 12 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.001s
+2026-05-15 01:38:58 | INFO | loop 12 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:38:59 | INFO | loop 12 result 3 skipped because label=NULL
+2026-05-15 01:38:59 | INFO | vision_locator.visualize cost 0.051s points=3
+2026-05-15 01:38:59 | INFO | loop 12 visualize ok in 0.066s
+2026-05-15 01:38:59 | INFO | loop 12 car_list.update_car_info ok in 0.026s
+2026-05-15 01:38:59 | INFO | loop 12 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:59 | INFO | loop 12 split infos my=2 enemy=6 all_detections=13
+2026-05-15 01:38:59 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:59 | INFO | loop 12 messager.update_enemy_car_infos ok in 0.010s
+2026-05-15 01:38:59 | INFO | messager.update_our_car_infos cost 0.000s len=2
+Timeout (0:00:20)!
+Thread 0x00007f3731cd6700 (most recent call first):
+  File "/home/radar/Radar/code/Hust_Radar_2026/communication/Messager.py", line 721 in parse_mark_process
+  File "/home/radar/Radar/code/Hust_Radar_2026/communication/Messager.py", line 679 in update_flags
+  File "/home/radar/Radar/code/Hust_Radar_2026/communication/Messager.py", line 831 in main_loop
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 870 in run
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 932 in _bootstrap_inner
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 890 in _bootstr2026-05-15 01:38:59 | INFO | loop 12 messager.update_our_car_infos ok in 0.015s
+ap
+
+Thread 0x00007f3740a56700 (most recent call first):
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/functional.py", line 2104 in silu
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/activation.py", line 405 in forward
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562 in _call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553 in _wrapped_call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/nn/modules/conv.py", line 55 in forward_fuse
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562 in _call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553 in _wrapped_call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/nn/tasks.py", line 149 in _predict_once
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/nn/tasks.py", line 128 in predict
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/nn/tasks.py", line 110 in forward
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562 in _call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553 in _wrapped_call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/nn/autobackend.py", line 558 in forward
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562 in _call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553 in _wrapped_call_impl
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/engine/predictor.py", line 145 in inference
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/engine/predictor.py", line 261 in stream_inference
+  File "/home/radar/.local/lib/python3.8/site-packages/torch/utils/_contextlib.py", line 36 in generator_context
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/engine/predictor.py", line 175 in __call__
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/engine/model.py", line 558 in predict
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/engine/model.py", line 605 in track
+  File "/home/radar/Radar/code/Hust_Radar_2026/detect/Detector.py", line 188 in track_infer
+  File "debug_detector_pipeline.py", line 87 in wrapped_track_infer
+  File "/home/radar/Radar/code/Hust_Radar_2026/detect/Detector.py", line 239 in infer
+  File "debug_detector_pipeline.py", line 110 in wrapped_infer
+  File "/home/radar/Radar/code/Hust_Radar_2026/detect/Detector.py", line 426 in detect_thread
+  File "debug_detector_pipeline.py", line 129 in wrapped_detect_thread
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 870 in run
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 932 in _bootstrap_inner
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 890 in _bootstrap
+
+Thread 0x00007f3743aca700 (most recent call first):
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/site-packages/urllib3/util/connection.py", line 73 in create_connection
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/site-packages/urllib3/connection.py", line 199 in _new_conn
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/site-packages/urllib3/connection.py", line 693 in connect
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/site-packages/urllib3/connectionpool.py", line 1095 in _validate_conn
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/site-packages/urllib3/connectionpool.py", line 466 in _make_request
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/site-packages/urllib3/connectionpool.py", line 789 in urlopen
+  File "/home/radar/.local/lib/python3.8/site-packages/requests/adapters.py", line 667 in send
+  File "/home/radar/.local/lib/python3.8/site-packages/requests/sessions.py", line 703 in send
+  File "/home/radar/.local/lib/python3.8/site-packages/requests/sessions.py", line 589 in request
+  File "/home/radar/.local/lib/python3.8/site-packages/requests/api.py", line 59 in request
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/hub/utils.py", line 98 in requests_with_progress
+  File "/home/radar/.local/lib/python3.8/site-packages/ultralytics/hub/utils.py", line 139 in func
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/contextlib.py", line 75 in inner
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 870 in run
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 932 in _bootstrap_inner
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/threading.py", line 890 in _bootstrap
+
+Thread 0x00007f3a272c9280 (most recent call first):
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/logging/__init__.py", line 1088 in emit
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/logging/__init__.py", line 954 in handle
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/logging/__init__.py", line 1661 in callHandlers
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/logging/__init__.py", line 1599 in handle
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/logging/__init__.py", line 1589 in _log
+  File "/home/radar/radioconda/envs/Radar/lib/python3.8/logging/__init__.py", line 1446 in info
+  File "debug_detector_pipeline.py", line 75 in timed_call
+  File "debug_detector_pipeline.py", line 542 in run_full_main_loop_probe
+  File "debug_detector_pipeline.py", line 740 in main
+  File "debug_detector_pipeline.py", line 776 in <module>
+2026-05-15 01:38:59 | INFO | loop 12 finished in 0.393s
+2026-05-15 01:38:59 | INFO | loop 13 avg_fps=1.893
+2026-05-15 01:38:59 | INFO | loop 13 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:59 | INFO | loop 13 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:38:59 | INFO | converter.detection_main cost 0.011s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:38:59 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:38:59 | INFO | loop 13 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.047s
+2026-05-15 01:38:59 | INFO | loop 13 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:38:59 | INFO | converter.detection_main cost 0.020s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:38:59 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:38:59 | INFO | loop 13 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.041s
+2026-05-15 01:38:59 | INFO | loop 13 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:38:59 | INFO | converter.detection_main cost 0.000s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:38:59 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:38:59 | INFO | loop 13 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.061s
+2026-05-15 01:38:59 | INFO | loop 13 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:38:59 | INFO | loop 13 result 3 skipped because label=NULL
+2026-05-15 01:38:59 | INFO | vision_locator.visualize cost 0.017s points=3
+2026-05-15 01:38:59 | INFO | loop 13 visualize ok in 0.032s
+2026-05-15 01:38:59 | INFO | loop 13 car_list.update_car_info ok in 0.020s
+2026-05-15 01:38:59 | INFO | loop 13 car_list.get_all_info ok in 0.000s
+2026-05-15 01:38:59 | INFO | loop 13 split infos my=2 enemy=6 all_detections=14
+2026-05-15 01:38:59 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:38:59 | INFO | loop 13 messager.update_enemy_car_infos ok in 0.005s
+2026-05-15 01:38:59 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:38:59 | INFO | loop 13 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:38:59 | INFO | loop 13 finished in 0.322s
+2026-05-15 01:38:59 | INFO | loop 14 avg_fps=1.907
+2026-05-15 01:38:59 | INFO | loop 14 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:38:59 | INFO | loop 14 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:38:59 | INFO | converter.detection_main cost 0.010s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:38:59 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:38:59 | INFO | loop 14 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.016s
+2026-05-15 01:38:59 | INFO | loop 14 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:38:59 | INFO | converter.detection_main cost 0.000s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:38:59 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:38:59 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:38:59 | INFO | loop 14 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.001s
+2026-05-15 01:38:59 | INFO | loop 14 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:38:59 | INFO | converter.detection_main cost 0.000s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:38:59 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:00 | INFO | loop 14 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.051s
+2026-05-15 01:39:00 | INFO | loop 14 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:39:00 | INFO | loop 14 result 3 skipped because label=NULL
+2026-05-15 01:39:00 | INFO | vision_locator.visualize cost 0.066s points=3
+2026-05-15 01:39:00 | INFO | loop 14 visualize ok in 0.092s
+2026-05-15 01:39:00 | INFO | loop 14 car_list.update_car_info ok in 0.000s
+2026-05-15 01:39:00 | INFO | loop 14 car_list.get_all_info ok in 0.000s
+2026-05-15 01:39:00 | INFO | loop 14 split infos my=2 enemy=6 all_detections=15
+2026-05-15 01:39:00 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:39:00 | INFO | loop 14 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:39:00 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:39:00 | INFO | loop 14 messager.update_our_car_infos ok in 0.000s
+2026-05-15 01:39:00 | INFO | loop 14 finished in 0.257s
+2026-05-15 01:39:00 | INFO | track_infer cost 1.511s
+2026-05-15 01:39:00 | INFO | loop 15 avg_fps=1.886
+2026-05-15 01:39:00 | INFO | loop 15 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:39:00 | INFO | loop 15 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:39:00 | INFO | converter.detection_main cost 0.000s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:39:00 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:00 | INFO | loop 15 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.031s
+2026-05-15 01:39:00 | INFO | loop 15 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:39:00 | INFO | converter.detection_main cost 0.005s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:39:00 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:00 | INFO | loop 15 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.056s
+2026-05-15 01:39:00 | INFO | loop 15 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:39:00 | INFO | converter.detection_main cost 0.000s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:39:00 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:00 | INFO | loop 15 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.051s
+2026-05-15 01:39:00 | INFO | loop 15 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:39:00 | INFO | loop 15 result 3 skipped because label=NULL
+2026-05-15 01:39:00 | INFO | vision_locator.visualize cost 0.051s points=3
+2026-05-15 01:39:00 | INFO | loop 15 visualize ok in 0.062s
+2026-05-15 01:39:00 | INFO | loop 15 car_list.update_car_info ok in 0.005s
+2026-05-15 01:39:00 | INFO | loop 15 car_list.get_all_info ok in 0.000s
+2026-05-15 01:39:00 | INFO | loop 15 split infos my=2 enemy=6 all_detections=16
+2026-05-15 01:39:00 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:39:00 | INFO | loop 15 messager.update_enemy_car_infos ok in 0.026s
+2026-05-15 01:39:00 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:39:00 | INFO | loop 15 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:39:00 | INFO | loop 15 finished in 0.323s
+2026-05-15 01:39:00 | INFO | loop 16 avg_fps=1.896
+2026-05-15 01:39:00 | INFO | loop 16 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:39:00 | INFO | loop 16 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:39:00 | INFO | converter.detection_main cost 0.000s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:39:00 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:00 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:01 | INFO | loop 16 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.022s
+2026-05-15 01:39:01 | INFO | loop 16 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:39:01 | INFO | converter.detection_main cost 0.010s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:39:01 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:01 | INFO | loop 16 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.066s
+2026-05-15 01:39:01 | INFO | loop 16 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:39:01 | INFO | converter.detection_main cost 0.005s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:39:01 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:01 | INFO | loop 16 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.051s
+2026-05-15 01:39:01 | INFO | loop 16 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:39:01 | INFO | loop 16 result 3 skipped because label=NULL
+2026-05-15 01:39:01 | INFO | vision_locator.visualize cost 0.017s points=3
+2026-05-15 01:39:01 | INFO | loop 16 visualize ok in 0.027s
+2026-05-15 01:39:01 | INFO | loop 16 car_list.update_car_info ok in 0.000s
+2026-05-15 01:39:01 | INFO | loop 16 car_list.get_all_info ok in 0.000s
+2026-05-15 01:39:01 | INFO | loop 16 split infos my=2 enemy=6 all_detections=17
+2026-05-15 01:39:01 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:39:01 | INFO | loop 16 messager.update_enemy_car_infos ok in 0.015s
+2026-05-15 01:39:01 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:39:01 | INFO | loop 16 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:39:01 | INFO | loop 16 finished in 0.360s
+2026-05-15 01:39:01 | INFO | loop 17 avg_fps=1.903
+2026-05-15 01:39:01 | INFO | loop 17 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:39:01 | INFO | loop 17 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:39:01 | INFO | converter.detection_main cost 0.000s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:39:01 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:01 | INFO | loop 17 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.007s
+2026-05-15 01:39:01 | INFO | loop 17 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:39:01 | INFO | converter.detection_main cost 0.005s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:39:01 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:01 | INFO | loop 17 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.097s
+2026-05-15 01:39:01 | INFO | loop 17 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:39:01 | INFO | converter.detection_main cost 0.015s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:39:01 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:01 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:01 | INFO | loop 17 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.046s
+2026-05-15 01:39:01 | INFO | loop 17 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:39:01 | INFO | loop 17 result 3 skipped because label=NULL
+2026-05-15 01:39:01 | INFO | vision_locator.visualize cost 0.036s points=3
+2026-05-15 01:39:01 | INFO | loop 17 visualize ok in 0.042s
+2026-05-15 01:39:01 | INFO | loop 17 car_list.update_car_info ok in 0.000s
+2026-05-15 01:39:01 | INFO | loop 17 car_list.get_all_info ok in 0.000s
+2026-05-15 01:39:01 | INFO | loop 17 split infos my=2 enemy=6 all_detections=18
+2026-05-15 01:39:01 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:39:01 | INFO | loop 17 messager.update_enemy_car_infos ok in 0.010s
+2026-05-15 01:39:01 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:39:01 | INFO | loop 17 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:39:01 | INFO | loop 17 finished in 0.350s
+2026-05-15 01:39:02 | INFO | loop 18 avg_fps=1.871
+2026-05-15 01:39:02 | INFO | loop 18 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:39:02 | INFO | loop 18 result 0 track_id=1 label=B1 xywh=[3595.1196, 1494.423, 172.93823, 151.18628]
+2026-05-15 01:39:02 | INFO | converter.detection_main cost 0.015s result=[12.495007, 0.27495670318603516, 0.35, 1778780334.9092543]
+2026-05-15 01:39:02 | INFO | vision_locator.post_process cost 0.000s result=[15.504993438720703, 14.725043296813965, 0.35]
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:02 | INFO | classify_infer cost 1.799s
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=21.38584161607436
+2026-05-15 01:39:02 | INFO | loop 18 result 0 packaged car_id=101 center=[15.504993438720703, 14.725043296813965, 0.35] cost=0.088s
+2026-05-15 01:39:02 | INFO | loop 18 result 1 track_id=2 label=R3 xywh=[2639.0283, 1482.0311, 128.64966, 122.58765]
+2026-05-15 01:39:02 | INFO | converter.detection_main cost 0.000s result=[13.7719965, 5.134195327758789, 0.44999999999999996, 1778780334.9092543]
+2026-05-15 01:39:02 | INFO | vision_locator.post_process cost 0.000s result=[14.22800350189209, 9.865804672241211, 0.44999999999999996]
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=17.319719555485594
+2026-05-15 01:39:02 | INFO | loop 18 result 1 packaged car_id=3 center=[14.22800350189209, 9.865804672241211, 0.44999999999999996] cost=0.061s
+2026-05-15 01:39:02 | INFO | loop 18 result 2 track_id=3 label=B3 xywh=[3196.8188, 1482.4199, 114.90027, 127.97925]
+2026-05-15 01:39:02 | INFO | converter.detection_main cost 0.005s result=[13.3422365, 2.22147274017334, 0.15, 1778780334.9092543]
+2026-05-15 01:39:02 | INFO | infer total cost 3.476s
+2026-05-15 01:39:02 | INFO | vision_locator.post_process cost 0.000s result=[14.657763481140137, 12.77852725982666, 0.15]
+2026-05-15 01:39:02 | INFO | capture.get_frame ok in 0.016s, current_frame=10, shape=(3000, 4096, 3)
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:02 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=19.44642098688544
+2026-05-15 01:39:02 | INFO | loop 18 result 2 packaged car_id=103 center=[14.657763481140137, 12.77852725982666, 0.15] cost=0.082s
+2026-05-15 01:39:02 | INFO | loop 18 result 3 track_id=4 label=NULL xywh=[2732.3674, 1435.2506, 111.42822, 128.64258]
+2026-05-15 01:39:02 | INFO | loop 18 result 3 skipped because label=NULL
+2026-05-15 01:39:02 | INFO | vision_locator.visualize cost 0.058s points=3
+2026-05-15 01:39:02 | INFO | loop 18 visualize ok in 0.068s
+2026-05-15 01:39:02 | INFO | loop 18 car_list.update_car_info ok in 0.000s
+2026-05-15 01:39:02 | INFO | loop 18 car_list.get_all_info ok in 0.000s
+2026-05-15 01:39:02 | INFO | loop 18 split infos my=2 enemy=6 all_detections=19
+2026-05-15 01:39:02 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:39:02 | INFO | loop 18 messager.update_enemy_car_infos ok in 0.015s
+2026-05-15 01:39:02 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:39:02 | INFO | loop 18 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:39:02 | INFO | loop 18 finished in 0.433s
+2026-05-15 01:39:02 | INFO | loop 19 avg_fps=1.874
+2026-05-15 01:39:02 | INFO | loop 19 got infer_result result_img_shape=(3000, 4096, 3) results_len=4
+2026-05-15 01:39:02 | INFO | loop 19 result 0 track_id=1 label=B1 xywh=[3595.697, 1494.6226, 172.51343, 151.0586]
+2026-05-15 01:39:02 | INFO | converter.detection_main cost 0.000s result=[12.49479, 0.2731208801269531, 0.35, 1778780338.8501356]
+2026-05-15 01:39:02 | INFO | vision_locator.post_process cost 0.000s result=[15.505209922790527, 14.726879119873047, 0.35]
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=21.387262643011486
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=21.387262643011486
+2026-05-15 01:39:02 | INFO | loop 19 result 0 packaged car_id=101 center=[15.505209922790527, 14.726879119873047, 0.35] cost=0.017s
+2026-05-15 01:39:02 | INFO | loop 19 result 1 track_id=2 label=R3 xywh=[2639.0479, 1481.5715, 128.24548, 122.29614]
+2026-05-15 01:39:02 | INFO | converter.detection_main cost 0.000s result=[13.798508, 5.129339218139648, 0.44999999999999996, 1778780338.8501356]
+2026-05-15 01:39:02 | INFO | vision_locator.post_process cost 0.000s result=[14.201492309570312, 9.870660781860352, 0.44999999999999996]
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=17.300717559955157
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=17.300717559955157
+2026-05-15 01:39:02 | INFO | loop 19 result 1 packaged car_id=3 center=[14.201492309570312, 9.870660781860352, 0.44999999999999996] cost=0.026s
+2026-05-15 01:39:02 | INFO | loop 19 result 2 track_id=3 label=B3 xywh=[3196.9353, 1482.6722, 114.674805, 127.87305]
+2026-05-15 01:39:02 | INFO | converter.detection_main cost 0.005s result=[13.342235, 2.2214536666870117, 0.15, 1778780338.8501356]
+2026-05-15 01:39:02 | INFO | vision_locator.post_process cost 0.000s result=[14.65776538848877, 12.778546333312988, 0.15]
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=19.446434958022667
+2026-05-15 01:39:02 | INFO | converter.get_distance cost 0.000s result=19.446434958022667
+2026-05-15 01:39:02 | INFO | loop 19 result 2 packaged car_id=103 center=[14.65776538848877, 12.778546333312988, 0.15] cost=0.087s
+2026-05-15 01:39:02 | INFO | loop 19 result 3 track_id=4 label=NULL xywh=[2732.6023, 1435.1619, 111.6593, 128.8003]
+2026-05-15 01:39:02 | INFO | loop 19 result 3 skipped because label=NULL
+2026-05-15 01:39:03 | INFO | vision_locator.visualize cost 0.031s points=3
+2026-05-15 01:39:03 | INFO | loop 19 visualize ok in 0.036s
+2026-05-15 01:39:03 | INFO | loop 19 car_list.update_car_info ok in 0.000s
+2026-05-15 01:39:03 | INFO | loop 19 car_list.get_all_info ok in 0.000s
+2026-05-15 01:39:03 | INFO | loop 19 split infos my=2 enemy=6 all_detections=20
+2026-05-15 01:39:03 | INFO | messager.update_enemy_car_infos cost 0.000s len=6
+2026-05-15 01:39:03 | INFO | loop 19 messager.update_enemy_car_infos ok in 0.000s
+2026-05-15 01:39:03 | INFO | messager.update_our_car_infos cost 0.000s len=2
+2026-05-15 01:39:03 | INFO | loop 19 messager.update_our_car_infos ok in 0.005s
+2026-05-15 01:39:03 | INFO | loop 19 finished in 0.320s
+2026-05-15 01:39:03 | INFO | full main loop probe finished none_count=0/20
+2026-05-15 01:39:03 | INFO | ===== full main loop probe end =====
+2026-05-15 01:39:04 | INFO | track_infer cost 1.668s
+2026-05-15 01:39:05 | INFO | debug script finished successfully
+2026-05-15 01:39:05 | INFO | classify_infer cost 1.589s
+2026-05-15 01:39:05 | INFO | infer total cost 3.400s
+2026-05-15 01:39:05 | INFO | detect_thread exited
+2026-05-15 01:39:05 | INFO | messager.stop cost 0.041s

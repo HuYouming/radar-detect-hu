@@ -1,0 +1,110 @@
+2026-05-15 01:33:47 | INFO | debug script start
+2026-05-15 01:33:47 | INFO | argv=['debug_detector_pipeline.py', '--mode', 'video']
+2026-05-15 01:33:47 | INFO | log_path=./debug_logs/debug_detector_pipeline_20260515_013347.log
+2026-05-15 01:33:47 | INFO | converter init begin, this step may require interactive point selection
+2026-05-15 01:33:47 | INFO | capture.get_frame ok in 0.143s, current_frame=1, shape=(3000, 4096, 3)
+Timeout (0:00:20)!
+Thread 0x00007f9ec8284280 (most recent call first):
+  File "/home/radar/Radar/code/Hust_Radar_2026/camera_locator/point_picker.py", line 86 in mouse_callback
+  File "/home/radar/Radar/code/Hust_Radar_2026/camera_locator/point_picker.py", line 204 in caller
+  File "/home/radar/Radar/code/Hust_Radar_2026/Lidar/Converter.py", line 169 in camera_to_field_init
+  File "debug_detector_pipeline.py", line 48 in timed_call
+  File "debug_detector_pipeline.py", line 282 in maybe_init_converter
+  File "debug_detector_pipeline.py", line 335 in main
+  File "debug_detector_pipeline.py", line 388 in <module>
+2026-05-15 01:34:07 | INFO | converter.camera_to_field_init ok in 20.128s
+2026-05-15 01:34:07 | INFO | video rewound to frame 0 after converter init
+2026-05-15 01:34:07 | INFO | ===== sync probe start =====
+2026-05-15 01:34:07 | INFO | capture.get_frame ok in 0.054s, current_frame=1, shape=(3000, 4096, 3)
+2026-05-15 01:34:07 | INFO | sync get_frame[0] ok in 0.054s
+2026-05-15 01:34:07 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.651s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.072s
+2026-05-15 01:34:08 | INFO | infer total cost 0.723s
+2026-05-15 01:34:08 | INFO | sync infer[0] ok in 0.724s
+2026-05-15 01:34:08 | INFO | sync probe frame 0 -> result_img=True results_len=4
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=2, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | sync get_frame[1] ok in 0.006s
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.009s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.004s
+2026-05-15 01:34:08 | INFO | infer total cost 0.013s
+2026-05-15 01:34:08 | INFO | sync infer[1] ok in 0.013s
+2026-05-15 01:34:08 | INFO | sync probe frame 1 -> result_img=True results_len=4
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=3, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | sync get_frame[2] ok in 0.006s
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.007s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.004s
+2026-05-15 01:34:08 | INFO | infer total cost 0.011s
+2026-05-15 01:34:08 | INFO | sync infer[2] ok in 0.011s
+2026-05-15 01:34:08 | INFO | sync probe frame 2 -> result_img=True results_len=4
+2026-05-15 01:34:08 | INFO | ===== sync probe end =====
+2026-05-15 01:34:08 | INFO | video rewound to frame 0 before async probe
+2026-05-15 01:34:08 | INFO | ===== async probe start =====
+2026-05-15 01:34:08 | INFO | detect_thread started
+2026-05-15 01:34:08 | INFO | async poll thread_alive=True result_ready=False last_stage=infer:end last_frame_index=3
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.050s, current_frame=1, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.026s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.020s
+2026-05-15 01:34:08 | INFO | infer total cost 0.047s
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=2, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.008s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.004s
+2026-05-15 01:34:08 | INFO | infer total cost 0.012s
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=3, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.008s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.003s
+2026-05-15 01:34:08 | INFO | infer total cost 0.012s
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=4, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.007s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.004s
+2026-05-15 01:34:08 | INFO | infer total cost 0.012s
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=5, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.007s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.004s
+2026-05-15 01:34:08 | INFO | infer total cost 0.012s
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=6, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | track_infer cost 0.007s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.004s
+2026-05-15 01:34:08 | INFO | infer total cost 0.012s
+2026-05-15 01:34:08 | INFO | capture.get_frame ok in 0.006s, current_frame=7, shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | infer input frame shape=(3000, 4096, 3)
+2026-05-15 01:34:08 | INFO | async poll thread_alive=True result_ready=True last_stage=track_infer:start last_frame_index=7
+2026-05-15 01:34:08 | INFO | async first result in 0.201s, result_img_shape=(3000, 4096, 3), results_len=4
+2026-05-15 01:34:08 | INFO | track_infer cost 0.007s
+2026-05-15 01:34:08 | INFO | classify_infer cost 0.003s
+2026-05-15 01:34:08 | INFO | infer total cost 0.011s
+2026-05-15 01:34:08 | INFO | detect_thread exited
+2026-05-15 01:34:08 | INFO | ===== async probe end =====
+2026-05-15 01:34:08 | INFO | async probe success, first_result_time=0.201s
+2026-05-15 01:34:08 | INFO | ===== main loop probe start =====
+2026-05-15 01:34:08 | INFO | loop 0 consume results_len=4
+2026-05-15 01:34:08 | INFO | loop 1 consume results_len=4
+2026-05-15 01:34:08 | INFO | loop 2 consume results_len=4
+2026-05-15 01:34:09 | INFO | loop 3 consume results_len=4
+2026-05-15 01:34:09 | INFO | loop 4 consume results_len=4
+2026-05-15 01:34:09 | INFO | loop 5 consume results_len=4
+2026-05-15 01:34:09 | INFO | loop 6 consume results_len=4
+2026-05-15 01:34:09 | INFO | loop 7 consume results_len=4
+2026-05-15 01:34:10 | INFO | loop 8 consume results_len=4
+2026-05-15 01:34:10 | INFO | loop 9 consume results_len=4
+2026-05-15 01:34:10 | INFO | loop 10 consume results_len=4
+2026-05-15 01:34:10 | INFO | loop 11 consume results_len=4
+2026-05-15 01:34:10 | INFO | loop 12 consume results_len=4
+2026-05-15 01:34:11 | INFO | loop 13 consume results_len=4
+2026-05-15 01:34:11 | INFO | loop 14 consume results_len=4
+2026-05-15 01:34:11 | INFO | loop 15 consume results_len=4
+2026-05-15 01:34:11 | INFO | loop 16 consume results_len=4
+2026-05-15 01:34:11 | INFO | loop 17 consume results_len=4
+2026-05-15 01:34:12 | INFO | loop 18 consume results_len=4
+2026-05-15 01:34:12 | INFO | loop 19 consume results_len=4
+2026-05-15 01:34:12 | INFO | main loop probe finished in 4.014s, none_count=0/20
+2026-05-15 01:34:12 | INFO | ===== main loop probe end =====
+2026-05-15 01:34:12 | INFO | debug script finished successfully
