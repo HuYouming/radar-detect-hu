@@ -8,28 +8,48 @@ This is the **RoboMaster 2026 Radar Station** software for HUST (Huazhong Univer
 
 ## Runtime Environment
 
-**Two-repo dependency**: This repo (`Hust_Radar_2026`) imports from a sibling repo (`Hust_Radar_2025`). The `communication.Messager`, `Log.Log` modules, and `./configs/*.yaml` config files all resolve relative to `Hust_Radar_2025`. The working directory at runtime must be `/home/py/Hust_Radar_2025`, or `PYTHONPATH` must include it.
+**Two-repo dependency**: This repo (`Hust_Radar_2026`) imports `Log.Log` from the sibling repo `Hust_Radar_2025`. All other core modules (`communication/`, `detect/`, `Lidar/`, `Car/`) live in this repo. The config files (`./configs/*.yaml`) are also in this repo and resolved relative to `Hust_Radar_2026/`.
+
+**Correct run directory**: Always run from `Hust_Radar_2026/`. Set `PYTHONPATH` to include `Hust_Radar_2025` for `Log.Log`:
+```bash
+export PYTHONPATH=/home/py/Hust_Radar_2025:$PYTHONPATH
+```
 
 **Environment**: `conda activate Radar`, then `source /opt/ros/noetic/setup.bash` before running anything.
 
 ## Running the System
 
-**Full competition launch** (opens 5 gnome-terminal windows):
+**Full competition launch** (opens 6 gnome-terminal windows):
 ```bash
 cd /home/py/Hust_Radar_2026
 bash 26main.sh
 ```
+Terminals: roscore → Livox SDK → Drone Search (`Counter/init_angle_sender.py`) → UDP Receiver → Radio UDP (`Radio/field_info_publisher.py`) → Main (`26_main.py`).
 
-**Manual single-process run** (from `Hust_Radar_2025` working dir):
+**Manual single-process run**:
 ```bash
-cd /home/py/Hust_Radar_2025
-python3 ../Hust_Radar_2026/26_main.py
+cd /home/py/Hust_Radar_2026
+export PYTHONPATH=/home/py/Hust_Radar_2025:$PYTHONPATH
+source /opt/ros/noetic/setup.bash
+python3 26_main.py
 ```
 
 **Entry points**:
-- `26_main.py` — 2026 season, vision-only localization (primary)
+- `26_main.py` — 2026 season, vision-only localization (primary). Top-of-file `mode = "camera"` / `"video"` controls live camera vs. offline video playback.
 - `25_main.py` — 2025 season, full LiDAR+vision fusion
 - `25main_without_lidar.py` — 2025 season, vision-only fallback
+
+**Debug / diagnosis tool**:
+```bash
+python3 debug_detector_pipeline.py --mode video --video-path /path/to/video.mp4 --skip-messager
+```
+Monkey-patches timing hooks onto `Detector`, `Capture`, `Converter`, and `Messager`; runs sync probe → async probe → mini main loop, logging every stage to `./debug_logs/`. Use `--skip-converter` to bypass the interactive point-selection step.
+
+**Camera calibration GUI** (PyQt5, requires display):
+```bash
+python3 camera_locator/calib.py
+```
+Pick matching pixel ↔ world point pairs on the camera view and field map; supports multi-height-plane calibration; saves homography matrices as `.npy` files.
 
 **ROS-only startup** (LiDAR stack only):
 ```bash
@@ -51,8 +71,8 @@ Three concurrent subsystems sharing a central data store (`CarList`):
        ▼
 [26_main.py main loop] ~20 fps
        ├── filter by team color (my_color from config)
-       ├── main_utilities.get_new_box() → shift detection to chassis bottom
-       ├── Lidar/Converter.detection_main() → world XYZ
+       ├── get_new_box() → shift detection to chassis bottom
+       ├── Lidar/Converter.detection_main() → world XYZ via Vision_Locator
        ├── Car/CarList.update_car_info() → per-car state with lifespan decay
        └── communication/Messager → serial send to allied robots + sentinel alerts
 
@@ -72,30 +92,44 @@ Three concurrent subsystems sharing a central data store (`CarList`):
 - **`Lidar/PointCloud.py`** — Ring-buffer point cloud queue; DBSCAN clustering via open3d to extract robot centroids.
 - **`Lidar/fast_search.py`** — GPU-accelerated (CuPy/Torch) spatial search for matching point cloud to 2D bounding boxes.
 - **`Car/Car.py`** — Per-robot state machine (`Car`) and thread-safe collection (`CarList`, 12 robots). Tracks field XYZ, trust flag, and lifespan countdown for stale detections.
+- **`communication/Messager.py`** — Central communication hub running in its own thread (~5 fps). Subscribes to ROS topics (`/drone_field_xyz`, `/radar/enemy/jam_key`, `/radar/enemy/health_array`); sends mini-map positions, sentinel alert angles, hero-approach warnings, and double-effect decisions over serial. Contains `HeroPredictor` and engine `Predictor` (topo-based) for filling in stale detections.
+- **`communication/Sender.py`** / **`Receiver.py`** — Low-level serial frame encode/decode.
+- **`communication/predictor.py`** — Per-car Kalman filter for position prediction.
+- **`communication/assit_yaw_pitch.py`** — Ballistic trajectory solver: given our hero's field XYZ and muzzle speed, computes optimal pitch/yaw for the sentry cannon to cover the hero.
 - **`Counter/init_angle_sender.py`** — Aerial drone detection and tracking. Processes LiDAR against a pre-loaded map PCD to detect the drone, computes yaw/pitch for the sentry cannon, sends over serial.
-- **`Radio/radar_udp_receiver.py`** — Decodes referee system UDP broadcast (binary protocol with CRC8).
+- **`Radio/field_info_publisher.py`** — Decodes referee-system UDP broadcast and republishes relevant fields (health, marks, dart target) as ROS topics consumed by `Messager`.
+- **`Radio/radar_udp_receiver.py`** — Raw referee system UDP decode (binary protocol with CRC8).
+- **`Radio/interferance_level_sender.py`** — Sends interference-level selection via UDP to the radio board.
 - **`PointTracker/Tracker.py`** — 2D constant-velocity Kalman filter tracker for associating point cloud detections in field coordinates across frames.
-- **`main_utilities.py`** — Shared `get_new_box()` (shifts detection to chassis bottom) and `visualize()` (top-down field map rendering).
+- **`camera_locator/`** — GUI calibration toolkit (PyQt5 + OpenCV). `calib.py` is the main app; `anchor.py` manages selected landmark points; `point_picker.py` handles zoom/pan/click interaction on high-res images.
+- **`Watcher/`** — Standalone serial monitor utilities for observing raw incoming frames during debugging.
+- **`main_utilities.py`** / **`draw_minimap_from_log.py`** — `get_new_box()` shifts detection to chassis bottom; `visualize()` renders a top-down field map.
 
-### Configuration Files (in `../Hust_Radar_2025/configs/`)
+### Configuration Files (`./configs/`)
 
 | File | Key settings |
 |---|---|
-| `main_config.yaml` | `global.my_color`, `global.is_debug`, `car.life_span`, `communication.port` (`/dev/ttyUSB0`), baud rate |
-| `detector_config.yaml` | YOLO model paths, confidence thresholds, vote decay interval, `is_record` |
+| `main_config.yaml` | `global.my_color` (`"Red"` / `"Blue"`), `global.is_debug`, `car.life_span`, `communication.port` (`/dev/ttyUSB0`), baud rate, `area.*` polygon zones for hero alert |
+| `detector_config.yaml` | YOLO model paths (update these to match actual `weights/` files), confidence thresholds, vote `life_time` |
 | `converter_config.yaml` | Camera intrinsics (fx, fy, cx, cy), extrinsic R+T, DBSCAN params |
 | `bin_cam_config.yaml` | Camera hardware: 4024×3036, exposure, gain, serial numbers |
 
-Model weights are in `weights/` (`new_stage1.pt`, `stage3.pt`).
+Model weights are in `weights/` (`new_stage1.pt`, `stage3.pt`). The paths in `detector_config.yaml` must be kept in sync manually.
+
+### Field Coordinate System
+
+28 m × 15 m. Origin (0, 0) at Red team's left-bottom corner (Red base side). Blue origin is mirrored: (28, 15). Car IDs: Red = 1–5, 7 (sentinel); Blue = 101–105, 107. Drone = index 4 (ID 6/106) in the `send_map_infos` array.
 
 ## Key External Dependencies
 
-- **ROS Noetic** — LiDAR topics, multi-node coordination
+- **ROS Noetic** — LiDAR topics, multi-node coordination, inter-process data bus between `field_info_publisher` and `Messager`
 - **ultralytics (YOLOv8)** — detection and tracking
 - **open3d** — DBSCAN clustering, PCD file loading
 - **cupy / torch** — GPU point cloud search (NVIDIA GPU required)
 - **Hikrobot MvImport SDK** — camera driver (in `stereo_camera/MvImport/`)
 - **Livox Mid-70** — solid-state LiDAR via `livox_ros_driver`
+- **PyQt5** — `camera_locator/calib.py` calibration GUI
+- **shapely** — polygon containment checks in hero-alert zone logic
 - Serial port `/dev/ttyUSB0` — robot-to-robot communication (wrapped in try/except so system runs without it)
 
 ## Season Versioning Convention

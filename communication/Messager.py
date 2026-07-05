@@ -1,18 +1,15 @@
 from .Sender import Sender
 from .Receiver import Receiver
 from .Topo_map.topo_lidar import *
-import sys
 from random import randint
 
 import multiprocessing
 import threading
 import time
-import logging
 from shapely.geometry import Point, Polygon
 import numpy as np
 import cv2
 from Log.Log import RadarLog
-import copy
 from Tools.Tools import Tools
 from Radio.interferance_level_sender import InterferenceSender
 

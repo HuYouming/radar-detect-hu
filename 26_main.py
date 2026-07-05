@@ -3,13 +3,12 @@ from detect.Detector import Detector
 from detect.Video import Video
 from detect.Capture import Capture
 # from Lidar.Lidar import Lidar
-from Lidar.Converter import Converter , ROISelector
+from Lidar.Converter import Converter 
 from Log.Log import RadarLog
 from Car.Car import *
 import numpy as np
 import cv2
 import time
-import open3d as o3d
 from collections import deque
 from ruamel.yaml import YAML
 import os
@@ -75,7 +74,7 @@ if __name__ == '__main__':
 
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
-        out = cv2.VideoWriter(video_save_path, fourcc, 24, (1920, 1080))  # 文件名，编码器，帧率，帧大小
+        out = cv2.VideoWriter(video_save_path, fourcc, 30, (1920, 1080))  # 文件名，编码器，帧率，帧大小
     else:
         out = None
 
