@@ -27,9 +27,8 @@ class Sender:
             self.my_sentinel_id = 107
             self.enemy_sentinel_id = 7
 
-        port_list = list(serial.tools.list_ports.comports())
-        port = port_list[1].device
-        self.port = port
+        self.enabled = cfg.get('communication', {}).get('enabled', True)
+        self.port = cfg['communication'].get('port', '/dev/ttyUSB0')
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']
         # self.SOF = b'\xA5'
@@ -109,6 +108,10 @@ class Sender:
         return crc
     # 串口初始化
     def serial_init(self):
+
+        if not self.enabled:
+            print('通信串口已禁用，Sender 不打开串口')
+            return None
 
         port_list = list(serial.tools.list_ports.comports())
 
@@ -238,6 +241,8 @@ class Sender:
 
     # 发送Info , 通用方法
     def send_info(self,tx_buff):
+        if not self.enabled or self.ser is None:
+            return
         self.ser.write(tx_buff)
 
     # 发送所有车辆位置信息 , 调用方法

@@ -1,3 +1,4 @@
+import argparse
 import rospy
 import numpy as np
 import threading
@@ -84,6 +85,44 @@ TABLE_PITCH_PERIOD = 4.0
 TABLE_PUBLISH_HZ = 20.0
 
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    value = value.lower()
+    if value in ("yes", "true", "t", "1", "y", "on"):
+        return True
+    if value in ("no", "false", "f", "0", "n", "off"):
+        return False
+    raise argparse.ArgumentTypeError("boolean value expected")
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="LiDAR drone tracker and gimbal angle publisher",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("--map-path", default="/root/rm/radar-detect/RM2026_map.pcd", help="static map PCD path")
+    parser.add_argument("--lidar-topic", default="/livox/lidar", help="input PointCloud2 topic")
+    parser.add_argument("--frame-id", default="world", help="published PointCloud2 frame id")
+    parser.add_argument("--angle-mode", default="track", choices=("track", "table"), help="angle publishing mode")
+    parser.add_argument("--enable-recording", type=str2bool, nargs="?", const=True, default=True, help="enable point cloud recording")
+    parser.add_argument("--disable-recording", action="store_false", dest="enable_recording", help="disable point cloud recording")
+    parser.add_argument("--record-raw", type=str2bool, nargs="?", const=True, default=True, help="record raw LiDAR frames")
+    parser.add_argument("--no-record-raw", action="store_false", dest="record_raw", help="disable raw LiDAR frame recording")
+    parser.add_argument("--record-world", type=str2bool, nargs="?", const=True, default=True, help="record transformed world frames")
+    parser.add_argument("--no-record-world", action="store_false", dest="record_world", help="disable transformed world frame recording")
+    parser.add_argument("--record-format", default="both", choices=("pcd", "numpy", "both"), help="record output format")
+    parser.add_argument("--record-dir", default=None, help="recording output directory")
+    parser.add_argument("--max-record-queue", type=int, default=50, help="maximum queued frames waiting to be written")
+    args, unknown = parser.parse_known_args(argv)
+    if unknown:
+        print(f"Ignoring unknown arguments: {unknown}")
+    args.angle_mode = args.angle_mode.strip().lower()
+    if not args.record_raw and not args.record_world:
+        args.enable_recording = False
+    return args
+
+
 class TrackedTarget:
     """被锁定的目标对象，跨帧持续追踪"""
     def __init__(self, cluster_id, center_world, cluster_points, score, flatness, velocity, timestamp):
@@ -156,8 +195,9 @@ class TrackedTarget:
 
 
 class LidarTracker:
-    def __init__(self):
+    def __init__(self, args):
         rospy.init_node('lidar_tracker', anonymous=True)
+        self.args = args
 
         # ========== 配置加载 ==========
         SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -180,20 +220,18 @@ class LidarTracker:
             ], dtype=np.float64)
         self.logger = RadarLog("GimbalAngleSender")
         # ========== 参数 ==========
-        self.map_path = self._resolve_map_path(
-            rospy.get_param('~map_path', '/home/radar/Radar/code/Hust_Radar_2026/RM2026_map.pcd')
-        )
-        self.lidar_topic = rospy.get_param('~lidar_topic', '/livox/lidar')
-        self.frame_id = rospy.get_param('~frame_id', 'world')
-        self.angle_mode = rospy.get_param('~angle_mode', 'track').strip().lower()
+        self.map_path = self._resolve_map_path(args.map_path)
+        self.lidar_topic = args.lidar_topic
+        self.frame_id = args.frame_id
+        self.angle_mode = args.angle_mode
 
         # ========== 录制参数 ==========
-        self.enable_recording = rospy.get_param('~enable_recording', True)
-        self.record_raw = rospy.get_param('~record_raw', True)
-        self.record_world = rospy.get_param('~record_world', True)
-        self.record_format = rospy.get_param('~record_format', 'both')
-        self.record_dir = rospy.get_param('~record_dir', os.path.join(SCRIPT_DIR, 'recordings'))
-        self.max_record_queue = rospy.get_param('~max_record_queue', 50)
+        self.enable_recording = args.enable_recording
+        self.record_raw = args.record_raw
+        self.record_world = args.record_world
+        self.record_format = args.record_format
+        self.record_dir = args.record_dir or os.path.join(SCRIPT_DIR, 'recordings')
+        self.max_record_queue = args.max_record_queue
         
         self.raw_frame_count = 0
         self.world_frame_count = 0
@@ -282,6 +320,7 @@ class LidarTracker:
     def _init_recording(self):
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.record_dir = os.path.join(self.record_dir, f"recording_{timestamp}")
+        os.makedirs(self.record_dir, exist_ok=True)
         
         if self.record_raw:
             self.raw_dir = os.path.join(self.record_dir, "raw_lidar")
@@ -1436,5 +1475,6 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    tracker = LidarTracker()
+    args = parse_args()
+    tracker = LidarTracker(args)
     sys.exit(tracker.run())

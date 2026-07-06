@@ -39,6 +39,7 @@ lidar:
   lidar_topic_name: "/centroid_points" # 点云发布话题名字
 
 communication:
+  enabled: true # 调试时没有下位机串口可改为 false
   port: '/dev/ttyUSB0' # 串口
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间

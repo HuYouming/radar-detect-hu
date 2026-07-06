@@ -77,7 +77,7 @@ class Predictor:
     def __init__(self,
                  my_color : str,
                  type : str):
-        self.map_cfg_path = '/home/radar/Radar/code/Hust_Radar_2026/communication/hero_topo_predictor/area_data.yaml'
+        self.map_cfg_path = '/root/rm/radar-detect/communication/hero_topo_predictor/area_data.yaml'
         self.map_cfg = YAML().load(open(self.map_cfg_path, encoding='Utf-8', mode='r'))
         self.my_color = my_color
         self.type = type

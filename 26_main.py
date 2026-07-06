@@ -13,7 +13,7 @@ from collections import deque
 from ruamel.yaml import YAML
 import os
 
-mode = "camera" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
+mode = "video" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
 save_video = False # 是否保存视频
 
 def get_new_box(xyxy,xywh):
@@ -51,7 +51,7 @@ def get_new_box(xyxy,xywh):
 
 
 if __name__ == '__main__':
-    video_path = "/home/radar/Radar/Videos/record20260514/153609.mp4"  # 请改为/path/to/video.avi
+    video_path = "/root/rm/radar-detect/data/test_video_trimmed.mp4"  # 请改为/path/to/video.avi
     detector_config_path = "./configs/detector_config.yaml"
     binocular_camera_cfg_path = "./configs/bin_cam_config.yaml"
     main_config_path = "./configs/main_config.yaml"
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     is_debug = main_cfg['global']['is_debug']
 
     # 设置保存路径
-    save_video_folder_path = "/home/radar/Radar/Videos/record"  # 保存视频的文件夹
+    save_video_folder_path = "/root/rm/radar-detect/video"  # 保存视频的文件夹
     today = time.strftime("%Y%m%d", time.localtime()) # 今日日期，例如2024年5月6日则为20240506
     today_video_folder_path = save_video_folder_path + today + "/" # 今日的视频文件夹
     if not os.path.exists(today_video_folder_path): # 当天的视频文件夹不存在则创建

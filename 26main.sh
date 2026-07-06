@@ -1,10 +1,14 @@
 #!/bin/bash
 # filename: 26main_gnome.sh
 
+MAIN_NAME="radar_main"
 SDK_NAME="SDK"
+COUNTER_NAME="drone"
+RADIO_NAME="radio"
 RADIO_ENV="base"
+MAIN_ENV="Radar"
 ROS_DISTRO="noetic"
-LIDAR_PATH="/home/radar/Radar/sdk"
+LIDAR_PATH="/root/rm/ws_livox/"
 WORKSPACE_PATH="/home/radar/Radar/code/Hust_Radar_2026"
 UDP_PATH="/home/radar/Radar/code/All_In_2/All_In"
 
@@ -34,29 +38,29 @@ gnome-terminal --title="Drone Search" -- bash -c '
     conda activate '"${MAIN_ENV}"'
     source /opt/ros/'"${ROS_DISTRO}"'/setup.bash
     cd '"${WORKSPACE_PATH}"'
-    python3 Counter/init_angle_sender.py
+    python3 Counter/init_angle_sender.py --no-record-raw --no-record-world
     exec bash
 ' &
 
 sleep 2
 
-# 4. 启动 UDP 接收器
-gnome-terminal --title="UDP Receiver" -- bash -c '
-    eval "$('/home/radar/radioconda/bin/conda' 'shell.bash' 'hook')"
-    conda activate '"${RADIO_ENV}"'
-    cd '"${UDP_PATH}"'
-    ./RX/start.sh
-    exec bash
-' &
-sleep 3
-gnome-terminal --title="Radio UDP" -- bash -c '
-    eval "$('/home/radar/radioconda/bin/conda' 'shell.bash' 'hook')"
-    conda activate '"${RADIO_ENV}"'
-    source /opt/ros/'"${ROS_DISTRO}"'/setup.bash
-    cd '"${WORKSPACE_PATH}"'
-    python3 Radio/field_info_publisher.py
-    exec bash
-' &
+# # 4. 启动 UDP 接收器
+# gnome-terminal --title="UDP Receiver" -- bash -c '
+#     eval "$('/home/radar/radioconda/bin/conda' 'shell.bash' 'hook')"
+#     conda activate '"${RADIO_ENV}"'
+#     cd '"${UDP_PATH}"'
+#     ./RX/start.sh
+#     exec bash
+# ' &
+# sleep 3
+# gnome-terminal --title="Radio UDP" -- bash -c '
+#     eval "$('/home/radar/radioconda/bin/conda' 'shell.bash' 'hook')"
+#     conda activate '"${RADIO_ENV}"'
+#     source /opt/ros/'"${ROS_DISTRO}"'/setup.bash
+#     cd '"${WORKSPACE_PATH}"'
+#     python3 Radio/field_info_publisher.py
+#     exec bash
+# ' &
 
 sleep 2
 

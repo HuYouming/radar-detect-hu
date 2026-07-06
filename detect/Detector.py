@@ -11,6 +11,9 @@ import numpy as np
 # import cupy as cp
 import queue
 import os
+import json
+import rospy
+from std_msgs.msg import String
 # 封装Tracker类，
 
 # 封装Detector类
@@ -77,6 +80,8 @@ class Detector:
         # 初始化锁对象和结果列表
         self._result_lock = threading.Lock()
         self._results = [None , None]
+        self._detect_pub = None
+        self._publish_seq = 0
 
 
     # 保存视频线程开始工作
@@ -141,6 +146,46 @@ class Detector:
         if self.is_record:
             if self.out is not None:
                 self.out.release()
+
+    def _ensure_ros_node(self):
+        try:
+            rospy.get_name()
+        except rospy.exceptions.ROSInitException:
+            rospy.init_node('detector_vision_publisher', anonymous=True, disable_signals=True)
+
+    def _ensure_detect_publisher(self):
+        if self._detect_pub is None:
+            self._ensure_ros_node()
+            self._detect_pub = rospy.Publisher("/vision/detect", String, queue_size=1)
+
+    def _to_builtin_list(self, values):
+        return [float(value) for value in values]
+
+    def _pack_detect_message(self, infer_result):
+        _, results = infer_result
+        packed_results = []
+        if results is not None:
+            for result in results:
+                xyxy_box, xywh_box, track_id, label, stamp = result
+                packed_results.append({
+                    "xyxy_box": self._to_builtin_list(xyxy_box),
+                    "xywh_box": self._to_builtin_list(xywh_box),
+                    "track_id": int(track_id),
+                    "label": str(label),
+                    "stamp": float(stamp),
+                })
+
+        message = {
+            "seq": self._publish_seq,
+            "stamp": time.time(),
+            "results": packed_results,
+        }
+        self._publish_seq += 1
+        return json.dumps(message, separators=(",", ":"))
+
+    def publish_results(self, infer_result):
+        self._ensure_detect_publisher()
+        self._detect_pub.publish(self._pack_detect_message(infer_result))
 
     # 二阶段分类推理Classify
     def classify_infer(self, roi_list): # 输入原图和box, 返回分类结果
@@ -365,14 +410,6 @@ class Detector:
 
             index = index + 1
 
-        for box in draw_candidate:
-            track_id, x_left, y_left, x_right, y_right, label = box
-            cv2.rectangle(frame, (x_left, y_left), (x_right, y_right), (255, 128, 0), 3, 8)
-            cv2.putText(frame, label, (int(x_left - 10), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-                        (0, 255, 122), 2)
-            cv2.putText(frame, str(track_id), (int(x_right + 5), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-                        (0, 255, 122), 2)
-
         self.loop_times = self.loop_times + 1
         return frame , zip_results
 
@@ -426,9 +463,7 @@ class Detector:
                 infer_result = self.infer(frame)
 
                 if infer_result is not None:
-                    with self._result_lock:
-                        # print("update detect result")
-                        self._results = infer_result  # 更新结果列表
+                    self.publish_results(infer_result)
         if self.is_record:
             self.stop_save_video()
 
@@ -438,8 +473,12 @@ class Detector:
 
         # 方法，来源于主线程调取最新的结果
     def get_results(self):
-        # with self._result_lock: # TODO:把锁去掉了,否则更新结果那里一直在等待锁,想个办法解决
-        return self._results  # 返回最新的结果列表
+        # 检测结果通过 /vision/detect 发布，这个接口只保留给旧调用兼容。
+        return self._results
+
+    def run(self, capture):
+        self.working_flag = True
+        self.detect_thread(capture)
 
 
 

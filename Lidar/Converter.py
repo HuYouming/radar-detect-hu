@@ -37,9 +37,7 @@ array([[x1, y1, z1],
        ...,
        [xn, yn, zn]])
 '''
-import cupy as cp
 import numpy as np
-import open3d as o3d
 from camera_locator.anchor import Anchor
 from camera_locator.point_picker import PointsPicker
 from .fast_search import FastSearch
@@ -47,6 +45,14 @@ from .vision_locator import Vision_Locator
 import cv2
 import time
 import yaml
+
+
+def _require_open3d():
+    try:
+        import open3d as o3d
+    except ImportError as exc:
+        raise ImportError("open3d is required for point cloud methods. Install it before using LiDAR point cloud processing.") from exc
+    return o3d
 
 
 # 从YAML文件中读取字典
@@ -257,16 +263,17 @@ class Converter:
 
 ###-------------------------------------2025---------------------------------------###
 
-# 从numpy转到cupy
+# 转为numpy数组
     def np2cp(self, np_array):
-        return cp.array(np_array)
+        return np.array(np_array)
 
-    # 从cupy转到numpy
+    # 转为numpy数组
     def cp2np(self, cp_array):
-        return cp.asnumpy(cp_array)
+        return np.asarray(cp_array)
 
     # 把open3d的pcd格式的点云的points修改为pc
     def update_pcd(self, pcd, pc):
+        o3d = _require_open3d()
         pcd.points = o3d.utility.Vector3dVector(pc)
         return pcd
 
@@ -280,14 +287,14 @@ class Converter:
         # 激光雷达坐标系下的点云转换到相机坐标系下,传入的是一个open3d的pcd格式的点云，在里面直接修改pcd的points属性,返回修改好的pcd
         # 从open3d的pcd格式的点云中提取点云的坐标
         pc = self.get_points(pcd)
-        # 从numpy变为cupy
+        # 确保为numpy数组
         pc = self.np2cp(pc)
         # Add a column of ones to the points
-        pc = cp.hstack((pc, np.ones((pc.shape[0], 1))))
-        pc = cp.dot(pc, self.extrinsic_matrix.T)
+        pc = np.hstack((pc, np.ones((pc.shape[0], 1))))
+        pc = np.dot(pc, self.extrinsic_matrix.T)
         # 提取前三列
         pc = pc[:, :3]
-        # 从cupy变为numpy
+        # 确保为numpy数组
         pc = self.cp2np(pc)
 
         self.update_pcd(pcd, pc)
@@ -307,8 +314,8 @@ class Converter:
         pc = self.get_points(pcd)
         pc = self.np2cp(pc)
         # Add a column of ones to the points
-        pc = cp.hstack((pc, np.ones((pc.shape[0], 1))))
-        pc = cp.dot(pc, self.extrinsic_matrix_inv.T)
+        pc = np.hstack((pc, np.ones((pc.shape[0], 1))))
+        pc = np.dot(pc, self.extrinsic_matrix_inv.T)
         # 提取前三列
         pc = pc[:, :3]
         pc = self.cp2np(pc)
@@ -336,18 +343,18 @@ class Converter:
     def camera_to_image(self, pc):  # 传入的是一个open3d的pcd格式的点云，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # 相机坐标系下的点云批量乘以内参矩阵，得到图像坐标系下的u,v和z,类似于深度图的生成
 
-        # 从numpy变为cupy
+        # 确保为numpy数组
         pc = self.np2cp(pc)
 
-        xyz = cp.dot(pc, self.np2cp(self.intrinsic_matrix).T)  # 得到的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
+        xyz = np.dot(pc, self.np2cp(self.intrinsic_matrix).T)  # 得到的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # 之前深度图没正确生成是因为没有提取z出来，导致原来的uv错误过大了
         # 要获得u,v,z，需要将xyz的第三列除以第三列
-        uvz = cp.zeros(xyz.shape)
+        uvz = np.zeros(xyz.shape)
         uvz[:, 0] = xyz[:, 0] / xyz[:, 2]
         uvz[:, 1] = xyz[:, 1] / xyz[:, 2]
         uvz[:, 2] = xyz[:, 2]
 
-        # 从cupy变为numpy
+        # 确保为numpy数组
         uvz = self.cp2np(uvz)
 
         return uvz
@@ -397,9 +404,9 @@ class Converter:
 
         pc = self.np2cp(pc)
         # 计算每个点的距离
-        distances = cp.linalg.norm(pc, axis=1)  #求范数
+        distances = np.linalg.norm(pc, axis=1)  #求范数
         # 找到中值点的索引
-        center_idx = cp.argsort(distances)[len(distances) // 2]
+        center_idx = np.argsort(distances)[len(distances) // 2]
         center = pc[center_idx]
         center = self.cp2np(center)
         return center
@@ -413,7 +420,7 @@ class Converter:
         print(box)
         # 提取像素坐标系下坐标
         uvz = self.camera_to_image(pc)
-        # numpy到cupy
+        # 确保为numpy数组
         uvz = self.np2cp(uvz)
         # 提取u,v,z
         u = uvz[:, 0]
@@ -421,12 +428,12 @@ class Converter:
         z = uvz[:, 2]
         # print("z",z)
         # 创建一个mask，标记落在矩形框中的点云,因为bitwise_and每次只能操作两个数组，所以需要分开操作
-        mask1 = cp.bitwise_and(u >= min_u, u <= max_u)
-        mask2 = cp.bitwise_and(v >= min_v, v <= max_v)
-        mask3 = cp.bitwise_and(mask1, mask2)
-        mask = cp.bitwise_and(mask3, z <= self.max_depth)  # 滤除超出最大深度的点云
+        mask1 = np.bitwise_and(u >= min_u, u <= max_u)
+        mask2 = np.bitwise_and(v >= min_v, v <= max_v)
+        mask3 = np.bitwise_and(mask1, mask2)
+        mask = np.bitwise_and(mask3, z <= self.max_depth)  # 滤除超出最大深度的点云
         # 获得落在矩形框中的点云的点云的index,pcd.points才是要筛选的点云
-        box_points = cp.asarray(pc)[mask]
+        box_points = np.asarray(pc)[mask]
 
         box_points = self.cp2np(box_points)
 
@@ -448,12 +455,14 @@ class Converter:
 
     # 深拷贝点云
     def copy_pcd(self, pcd):
+        o3d = _require_open3d()
         new_pcd = o3d.geometry.PointCloud()
         new_pcd.points = o3d.utility.Vector3dVector(np.asarray(pcd.points))
         return new_pcd
 
     # 对点云进行DBSCAN聚类
     def cluster(self, pcd):
+        o3d = _require_open3d()
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
             labels_np = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points,
                                                     print_progress=self.print_cluster_progress))
@@ -461,29 +470,29 @@ class Converter:
         if len(labels_np) == 0 or np.all(labels_np == -1):
             return np.array([]), np.array([0, 0, 0])
 
-        # Convert NumPy arrays to CuPy arrays for GPU acceleration
-        labels = cp.asarray(labels_np)
-        pcd_points = cp.asarray(pcd.points)
+        # Convert labels and points to NumPy arrays
+        labels = np.asarray(labels_np)
+        pcd_points = np.asarray(pcd.points)
 
         # Compute cluster sizes
         max_label = labels.max().item()
-        cluster_sizes = cp.array([cp.sum(labels == i).item() for i in range(max_label + 1)])
+        cluster_sizes = np.array([np.sum(labels == i).item() for i in range(max_label + 1)])
 
         # Early return if cluster_sizes is empty
         if len(cluster_sizes) == 0:
             return np.array([]), np.array([0, 0, 0])
 
         # Find the index of the largest cluster
-        max_cluster_idx = cp.argmax(cluster_sizes)
+        max_cluster_idx = np.argmax(cluster_sizes)
 
         # Find all points in the largest cluster
         max_cluster_points = pcd_points[labels == max_cluster_idx]
 
         # Compute the centroid of the largest cluster
-        centroid = cp.mean(max_cluster_points, axis=0)
+        centroid = np.mean(max_cluster_points, axis=0)
 
-        # Convert CuPy arrays back to NumPy arrays before returning
-        return max_cluster_points.get(), centroid.get()
+        # Return NumPy arrays
+        return max_cluster_points, centroid
 
 
     # 对传入点云进行滤波去除离群点和噪声点

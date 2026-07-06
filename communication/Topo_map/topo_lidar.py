@@ -25,7 +25,7 @@ import sys
 import numpy as np
 from ruamel.yaml import YAML
 
-map_cfg_path = "/home/radar/Radar/code/Hust_Radar_2026/configs/main_config.yaml"
+map_cfg_path = "/root/rm/radar-detect/configs/main_config.yaml"
 map_cfg = YAML().load(open(map_cfg_path, encoding='Utf-8', mode='r'))  # 将main_config.yanl文件加载到 mian_cfg中
 
 """"""""""""

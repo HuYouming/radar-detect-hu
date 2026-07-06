@@ -37,15 +37,18 @@ class Receiver:
 
 
         # 串口配置
-        port_list = list(serial.tools.list_ports.comports())
-        port = port_list[1].device
-        self.port = port
+        self.enabled = cfg.get('communication', {}).get('enabled', True)
+        self.port = cfg['communication'].get('port', '/dev/ttyUSB0')
         self.send_double_flag = 0 # 初始是0
         self.send_double_count_1 = 0 # 防止单次错误信息，计数
         self.send_double_count_2 = 0  # 防止单次错误信息，计数
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']
-        self.ser = serial.Serial(self.port, self.bps, timeout=self.timex)
+        self.ser = None
+        if self.enabled:
+            self.ser = serial.Serial(self.port, self.bps, timeout=self.timex)
+        else:
+            print('通信串口已禁用，Receiver 不打开串口')
         self.fps = 100 # 控制主线程帧率为100Hz
         # CRC表
         self.CRC8_TABLE = [
@@ -116,11 +119,14 @@ class Receiver:
         self.last_time_main_loop = time.time() # 保持一秒一帧
 
         # 接收进程
-        self.process = Process(target=self.parse_cmd_id_batch, daemon=True)
+        self.process = Process(target=self.parse_cmd_id_batch, daemon=True) if self.enabled else None
 
     # 线程创建
     # 线程开启
     def start(self):
+        if not self.enabled or self.process is None:
+            self.working_flag = False
+            return
         self.working_flag = True
         self.process.start()
     # 线程关闭
@@ -128,9 +134,11 @@ class Receiver:
         if self.working_flag:
             self.working_flag = False
             self.logger.log("receiver stop")
-            self.process.terminate()  # Forcefully terminate the process
+            if self.process is not None:
+                self.process.terminate()  # Forcefully terminate the process
             # self.process.join()q
-            self.ser.close()
+            if self.ser is not None:
+                self.ser.close()
             self.logger.log(f"working status {self.working_flag}")
 
         # self.threading.join()
@@ -632,7 +640,8 @@ bit 9-15：保留
 
     # 关闭串口
     def close(self):
-        self.ser.close()
+        if self.ser is not None:
+            self.ser.close()
 
 
 
