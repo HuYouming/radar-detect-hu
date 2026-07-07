@@ -1,26 +1,40 @@
 import cv2
 import torch
 import datetime
+import json
 from ruamel.yaml import YAML
 from ultralytics import YOLO
 # from Capture import Capture
 import math
 import time
-import threading
 import numpy as np
 # import cupy as cp
-import queue
 import os
-import json
-import rospy
-from std_msgs.msg import String
+import argparse
+try:
+    import rospy
+    from std_msgs.msg import String
+except ImportError:
+    rospy = None
+    String = None
 # 封装Tracker类，
+
+
+def build_capture(mode, video_path, camera_config_path, camera_name):
+    if mode == "video":
+        from detect.Video import Video
+        return Video(video_path)
+    if mode == "camera":
+        from detect.Capture import Capture
+        return Capture(camera_config_path, camera_name)
+    raise ValueError(f"unsupported detector mode: {mode}")
 
 # 封装Detector类
 class Detector:
     def __init__(self, detector_config_path):
         # 加载配置文件
         self.cfg = YAML().load(open(detector_config_path, encoding='Utf-8', mode='r'))
+        self.capture = None
 
         # flag
         self.is_record = self.cfg['is_record']
@@ -32,11 +46,11 @@ class Detector:
             if not os.path.exists(today_video_folder_path):  # 当天的视频文件夹不存在则创建
                 os.makedirs(today_video_folder_path)
             video_name = time.strftime("%H%M%S", time.localtime())  # 视频名称，以时分秒命名，19：29：30则为192930
-            video_save_path = today_video_folder_path + video_name + ".avi"  # 视频保存路径
+            video_save_path = today_video_folder_path + video_name + ".mp4"  # 视频保存路径
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
             self.out = cv2.VideoWriter(video_save_path, fourcc, self.record_fps, (4024 , 3036))
-            self.frame_queue = queue.Queue(maxsize=self.record_fps * 2)
-            self.save_thread = threading.Thread(target=self.save_video, args=(self.out,self.frame_queue,), daemon=True)
+        else:
+            self.out = None
 
         # 检测模型
         print('Loading Car Model')
@@ -73,22 +87,32 @@ class Detector:
         # 保存视频多线程操作
         self.save_video_working_flag = False
         self.get_first_frame_flag = False
-        # 多线程操作
-        self.threading = None
         self.working_flag = False
         self.init_flag = False
-        # 初始化锁对象和结果列表
-        self._result_lock = threading.Lock()
         self._results = [None , None]
-        self._detect_pub = None
-        self._publish_seq = 0
+        ros_cfg = self.cfg.get('ros', {})
+        self.process_hz = float(ros_cfg.get('process_hz', 100))
+        self.detect_publish_hz = float(ros_cfg.get('detect_publish_hz', 100))
+        self.detect_topic = ros_cfg.get('detect_topic', '/vision/detect')
+        self.result_topic = ros_cfg.get('result_topic', '/vision/result')
+        self.frame_id = ros_cfg.get('frame_id', 'vision_camera')
+        self.display_enabled = bool(ros_cfg.get('display_enabled', True))
+        self.display_width = int(ros_cfg.get('display_width', 1920))
+        self.display_height = int(ros_cfg.get('display_height', 1080))
+        self.ros_interfaces_ready = False
+        self.detect_pub = None
+        self.result_sub = None
+        self.latest_draw_payload = None
+        self.seq = 0
+        self._last_process_time = 0.0
+        self._last_detect_publish_time = 0.0
 
 
     # 保存视频线程开始工作
     def start_save_video(self):
         if self.is_record:
             self.save_video_working_flag = True
-            self.save_thread.start()
+
     # 保存视频线程停止工作
     def stop_save_video(self):
         if self.is_record:
@@ -98,32 +122,133 @@ class Detector:
             if self.out is not None:
                 self.out.release()
                 print("release done")
-            # self.save_thread.join()
 
-    # 创建线程
+    def _ensure_ros_interfaces(self):
+        if self.ros_interfaces_ready:
+            return
+        if rospy is None:
+            raise RuntimeError("rospy is required for Detector ROS publishing")
+        if not rospy.core.is_initialized():
+            rospy.init_node('vision_detector', anonymous=True, disable_signals=True)
+        self.detect_pub = rospy.Publisher(self.detect_topic, String, queue_size=1)
+        self.result_sub = rospy.Subscriber(self.result_topic, String, self.result_callback, queue_size=1)
+        self.ros_interfaces_ready = True
+
+    def result_callback(self, msg):
+        try:
+            self.latest_draw_payload = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            rospy.logwarn(f"invalid {self.result_topic} payload: {exc}")
+
+    def _interval_elapsed(self, now, last_time, hz):
+        if hz <= 0:
+            return False
+        return (now - last_time) >= (1.0 / hz)
+
+    def _to_builtin(self, value):
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, (list, tuple)):
+            return [self._to_builtin(item) for item in value]
+        if isinstance(value, dict):
+            return {key: self._to_builtin(item) for key, item in value.items()}
+        return value
+
+    def _build_detection_payload(self, frame, results, stamp):
+        detections = []
+        if results is not None:
+            for result in results:
+                xyxy_box, xywh_box, track_id, label, det_stamp = result
+                detections.append({
+                    "xyxy": self._to_builtin(xyxy_box),
+                    "xywh": self._to_builtin(xywh_box),
+                    "track_id": int(track_id),
+                    "label": str(label),
+                    "stamp": float(det_stamp),
+                })
+        return {
+            "seq": int(self.seq),
+            "stamp": float(stamp),
+            "frame_id": self.frame_id,
+            "source_width": int(frame.shape[1]),
+            "source_height": int(frame.shape[0]),
+            "detections": detections,
+        }
+
+    def publish_detection(self, frame, results, stamp):
+        self._ensure_ros_interfaces()
+        payload = self._build_detection_payload(frame, results, stamp)
+        self.detect_pub.publish(String(data=json.dumps(payload, separators=(',', ':'))))
+
+    def _int_point(self, point):
+        return int(point[0]), int(point[1])
+
+    def draw_result_payload(self, frame):
+        payload = self.latest_draw_payload
+        if payload is None or frame is None:
+            return
+
+        color = (0, 255, 122)
+        red = (0, 0, 255)
+        for item in payload.get("texts", []):
+            cv2.putText(
+                frame,
+                str(item.get("text", "")),
+                self._int_point(item.get("point", [0, 0])),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                float(item.get("scale", 0.75)),
+                tuple(item.get("color", color)),
+                int(item.get("thickness", 2)),
+            )
+        for item in payload.get("circles", []):
+            cv2.circle(
+                frame,
+                self._int_point(item.get("center", [0, 0])),
+                int(item.get("radius", 5)),
+                tuple(item.get("color", red)),
+                int(item.get("thickness", -1)),
+            )
+        for item in payload.get("lines", []):
+            cv2.line(
+                frame,
+                self._int_point(item.get("p1", [0, 0])),
+                self._int_point(item.get("p2", [0, 0])),
+                tuple(item.get("color", color)),
+                int(item.get("thickness", 2)),
+            )
+
+    def display_frame(self, frame):
+        if not self.display_enabled or frame is None:
+            return
+        show_frame = frame
+        if self.display_width > 0 and self.display_height > 0:
+            show_frame = cv2.resize(frame, (self.display_width, self.display_height))
+        cv2.imshow("frame", show_frame)
+        cv2.waitKey(1)
+
+    # 绑定图像源。保留 create/start/stop 接口，内部不再创建线程。
     def create(self, capture):
         if not self.init_flag:
-            self.threading = threading.Thread(target=self.detect_thread, args=(capture,), daemon=True)
+            self.capture = capture
             self.init_flag = True
 
-    # 启动线程
+    # 启动同步检测循环
     def start(self):
         if self.init_flag:
             print("detect start function")
-            self.working_flag = True  # 先设True再开始，否则开始太快检测为False直接结束了
-            self.threading.start()
+            self._ensure_ros_interfaces()
+            self.working_flag = True
+            self.start_save_video()
             print("start")
 
-    # 关闭线程
+    # 关闭同步检测循环
     def stop(self):
         if self.init_flag:
             print("detect stop")
-
-
             self.working_flag = False
-
-
-            # self.threading.join()
+            self.stop_save_video()
 
     # 清除
     def release(self):
@@ -138,54 +263,13 @@ class Detector:
         self.Track_value = None
         self.id_candidate = None
         self.loop_times = None
-        self.threading = None
+        self.capture = None
         self.working_flag = None
         self.init_flag = None
-        self._result_lock = None
         self._results = None
         if self.is_record:
             if self.out is not None:
                 self.out.release()
-
-    def _ensure_ros_node(self):
-        try:
-            rospy.get_name()
-        except rospy.exceptions.ROSInitException:
-            rospy.init_node('detector_vision_publisher', anonymous=True, disable_signals=True)
-
-    def _ensure_detect_publisher(self):
-        if self._detect_pub is None:
-            self._ensure_ros_node()
-            self._detect_pub = rospy.Publisher("/vision/detect", String, queue_size=1)
-
-    def _to_builtin_list(self, values):
-        return [float(value) for value in values]
-
-    def _pack_detect_message(self, infer_result):
-        _, results = infer_result
-        packed_results = []
-        if results is not None:
-            for result in results:
-                xyxy_box, xywh_box, track_id, label, stamp = result
-                packed_results.append({
-                    "xyxy_box": self._to_builtin_list(xyxy_box),
-                    "xywh_box": self._to_builtin_list(xywh_box),
-                    "track_id": int(track_id),
-                    "label": str(label),
-                    "stamp": float(stamp),
-                })
-
-        message = {
-            "seq": self._publish_seq,
-            "stamp": time.time(),
-            "results": packed_results,
-        }
-        self._publish_seq += 1
-        return json.dumps(message, separators=(",", ":"))
-
-    def publish_results(self, infer_result):
-        self._ensure_detect_publisher()
-        self._detect_pub.publish(self._pack_detect_message(infer_result))
 
     # 二阶段分类推理Classify
     def classify_infer(self, roi_list): # 输入原图和box, 返回分类结果
@@ -317,6 +401,8 @@ class Detector:
             x_left = x - w / 2
             y_left = y - h / 2
             roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
+            if roi.size == 0:
+                continue
             roi_list.append(roi)
 
             # 获取track_id的列表
@@ -324,6 +410,8 @@ class Detector:
             # 获取boxes列表
             box_list.append(box)
         # print("to_infer")
+        if len(roi_list) == 0:
+            return frame, None
         label_list,conf_list = self.classify_infer(roi_list)
 
 
@@ -410,76 +498,78 @@ class Detector:
 
             index = index + 1
 
+        for box in draw_candidate:
+            track_id, x_left, y_left, x_right, y_right, label = box
+            cv2.rectangle(frame, (x_left, y_left), (x_right, y_right), (255, 128, 0), 3, 8)
+            cv2.putText(frame, label, (int(x_left - 10), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+                        (0, 255, 122), 2)
+            cv2.putText(frame, str(track_id), (int(x_right + 5), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+                        (0, 255, 122), 2)
+
         self.loop_times = self.loop_times + 1
         return frame , zip_results
 
-    # 保存视频
-    def save_video(self, out, frame_queue):
-        last_time_save_video = time.time()
-        while True:
-            if not self.save_video_working_flag:
-                print("save video stop")
-                return
-            if not self.get_first_frame_flag:
-                print("waiting for first frame")
-                time.sleep(1)
-                continue
-            try:
-                frame = frame_queue.get(False) # 从队列中取出帧,如果队列为空，抛出异常
-            except queue.Empty:
-                print("queue empty")
-                time.sleep((1/self.record_fps))
-                continue
-            if frame is not None:
-                if time.time() - last_time_save_video < (1/self.record_fps):
-                    time.sleep((1/self.record_fps) - (time.time() - last_time_save_video))
-                print("write frame")
-                out.write(frame)
-                last_time_save_video = time.time()
-            else:
-                time.sleep((1/self.record_fps))
-                continue
+    def write_record_frame(self, frame):
+        if self.is_record and self.save_video_working_flag and self.out is not None and frame is not None:
+            self.out.write(frame)
 
-    # 目标检测子线程
-    def detect_thread(self, capture):
-        start_time = time.time()
-        if self.is_record:
-            self.start_save_video()
-        while True:  # 无限循环以持续处理图像
-            if not self.working_flag:
-                break
-            now = time.time()
-            fps = 1 / (now - start_time)
-            start_time = now
-            print("in fps",fps)
-            frame = capture.get_frame()
-            print("frame")
-            if frame is not None:
-                if self.is_record:
-                    self.frame_queue.put(np.copy(frame))
-                    self.get_first_frame_flag = True
-                # 执行目标检测
-                print("infer")
-                infer_result = self.infer(frame)
+    # 同步处理一帧：读取图像、推理，并按配置频率发布 ROS 消息。
+    def process_once(self):
+        if not self.working_flag or self.capture is None:
+            return None
+        now = time.time()
+        if not self._interval_elapsed(now, self._last_process_time, self.process_hz):
+            return self._results
+        self._last_process_time = now
+        frame = self.capture.get_frame()
+        if frame is None:
+            return None
+        self.write_record_frame(frame)
+        infer_result = self.infer(frame)
+        if infer_result is None:
+            return None
+        result_img, results = infer_result
+        stamp = time.time()
+        self._results = infer_result
+        if self._interval_elapsed(stamp, self._last_detect_publish_time, self.detect_publish_hz):
+            self.publish_detection(frame, results, stamp)
+            self._last_detect_publish_time = stamp
+        self.draw_result_payload(result_img)
+        self.display_frame(result_img)
+        self.seq += 1
+        return infer_result
 
-                if infer_result is not None:
-                    self.publish_results(infer_result)
-        if self.is_record:
-            self.stop_save_video()
+    def spin(self):
+        self.start()
+        rate = rospy.Rate(max(self.process_hz, 1.0)) if rospy is not None else None
+        while not rospy.is_shutdown():
+            self.process_once()
+            if rate is not None:
+                rate.sleep()
 
-
-
-
-
-        # 方法，来源于主线程调取最新的结果
+    # 方法，来源于主线程调取最新的结果
     def get_results(self):
-        # 检测结果通过 /vision/detect 发布，这个接口只保留给旧调用兼容。
-        return self._results
+        return self._results  # 返回最新的结果列表
 
-    def run(self, capture):
-        self.working_flag = True
-        self.detect_thread(capture)
 
+def main():
+    parser = argparse.ArgumentParser(description="Vision detector ROS node")
+    parser.add_argument("--mode", choices=["video", "camera"], default="camera")
+    parser.add_argument("--video-path", default="/root/rm/radar-detect/data/test_video_trimmed.mp4")
+    parser.add_argument("--detector-config", default="./configs/detector_config.yaml")
+    parser.add_argument("--camera-config", default="./configs/bin_cam_config.yaml")
+    parser.add_argument("--camera-name", default="new_cam")
+    args = parser.parse_args()
+
+    capture = build_capture(args.mode, args.video_path, args.camera_config, args.camera_name)
+    detector = Detector(args.detector_config)
+    detector.create(capture)
+    try:
+        detector.spin()
+    finally:
+        detector.stop()
+        capture.release()
+        cv2.destroyAllWindows()
 
 
 
@@ -574,6 +664,5 @@ class Detector:
 #     cv2.destroyAllWindows()
 #
 #
-# if __name__ == '__main__':
-#     main()
-
+if __name__ == '__main__':
+    main()

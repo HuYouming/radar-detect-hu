@@ -1,5 +1,4 @@
 from communication.Messager import Messager
-from detect.Detector import Detector
 from detect.Video import Video
 from detect.Capture import Capture
 # from Lidar.Lidar import Lidar
@@ -12,6 +11,11 @@ import time
 from collections import deque
 from ruamel.yaml import YAML
 import os
+import json
+import rospy
+from std_msgs.msg import String
+import subprocess
+import sys
 
 mode = "video" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
 save_video = False # 是否保存视频
@@ -50,13 +54,123 @@ def get_new_box(xyxy,xywh):
     return [new_x,new_y,new_x1,new_y1]
 
 
+class VisionRosBuffer:
+    def __init__(self, detect_topic="/vision/detect", result_topic="/vision/result"):
+        self.latest_detection = None
+        self.source_size = None
+        self.detect_sub = rospy.Subscriber(detect_topic, String, self.detect_callback, queue_size=1)
+        self.result_pub = rospy.Publisher(result_topic, String, queue_size=1)
+
+    def detect_callback(self, msg):
+        try:
+            payload = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            rospy.logwarn(f"invalid /vision/detect payload: {exc}")
+            return
+        self.latest_detection = payload
+        width = payload.get("source_width")
+        height = payload.get("source_height")
+        if width and height:
+            self.source_size = (int(width), int(height))
+
+    def get_results(self):
+        payload = self.latest_detection
+        if payload is None:
+            return None
+        results = []
+        for item in payload.get("detections", []):
+            results.append([
+                item.get("xyxy", []),
+                item.get("xywh", []),
+                int(item.get("track_id", -1)),
+                item.get("label", "NULL"),
+                float(item.get("stamp", payload.get("stamp", time.time()))),
+            ])
+        return None, results
+
+    def get_seq(self):
+        if self.latest_detection is None:
+            return -1
+        return int(self.latest_detection.get("seq", -1))
+
+    def publish_result(self, payload):
+        self.result_pub.publish(String(data=json.dumps(payload, separators=(',', ':'))))
+
+
+def to_builtin(value):
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, (list, tuple)):
+        return [to_builtin(item) for item in value]
+    if isinstance(value, dict):
+        return {key: to_builtin(item) for key, item in value.items()}
+    return value
+
+
+def add_text(draw_payload, text, point, scale=1.5, color=(0, 255, 122), thickness=2):
+    draw_payload["texts"].append({
+        "text": text,
+        "point": [int(point[0]), int(point[1])],
+        "scale": scale,
+        "color": list(color),
+        "thickness": thickness,
+    })
+
+
+def add_circle(draw_payload, center, radius=5, color=(0, 0, 255), thickness=-1):
+    draw_payload["circles"].append({
+        "center": [int(center[0]), int(center[1])],
+        "radius": radius,
+        "color": list(color),
+        "thickness": thickness,
+    })
+
+
+def add_line(draw_payload, p1, p2, color=(0, 255, 122), thickness=2):
+    draw_payload["lines"].append({
+        "p1": [int(p1[0]), int(p1[1])],
+        "p2": [int(p2[0]), int(p2[1])],
+        "color": list(color),
+        "thickness": thickness,
+    })
+
+
+def start_detector_process(mode, video_path, detector_config_path, camera_config_path, camera_name):
+    cmd = [
+        sys.executable,
+        "-m",
+        "detect.Detector",
+        "--mode",
+        mode,
+        "--video-path",
+        video_path,
+        "--detector-config",
+        detector_config_path,
+        "--camera-config",
+        camera_config_path,
+        "--camera-name",
+        camera_name,
+    ]
+    return subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
+
+
 if __name__ == '__main__':
     video_path = "/root/rm/radar-detect/data/test_video_trimmed.mp4"  # 请改为/path/to/video.avi
     detector_config_path = "./configs/detector_config.yaml"
     binocular_camera_cfg_path = "./configs/bin_cam_config.yaml"
     main_config_path = "./configs/main_config.yaml"
     converter_config_path = "./configs/converter_config.yaml"
+    camera_name = "new_cam"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
+    detector_cfg = YAML().load(open(detector_config_path, encoding='Utf-8', mode='r'))
+    detector_ros_cfg = detector_cfg.get('ros', {})
+    detect_topic = detector_ros_cfg.get('detect_topic', '/vision/detect')
+    result_topic = detector_ros_cfg.get('result_topic', '/vision/result')
+    detector_process_hz = float(detector_ros_cfg.get('process_hz', 100))
+    if not rospy.core.is_initialized():
+        rospy.init_node('radar_vision_main', anonymous=True, disable_signals=True)
     # 全局变量
     global_my_color = main_cfg['global']['my_color']
     is_debug = main_cfg['global']['is_debug']
@@ -81,7 +195,7 @@ if __name__ == '__main__':
     # 传递的绘值队列
     draw_queue = deque(maxlen=10)
     # 类初始化
-    detector = Detector(detector_config_path)
+    vision_buffer = VisionRosBuffer(detect_topic, result_topic)
     # lidar = Lidar(main_cfg)
     converter = Converter(global_my_color,converter_config_path)  # 传入的是path
     carList = CarList(main_cfg)
@@ -98,7 +212,7 @@ if __name__ == '__main__':
         capture = Video(video_path)
     elif mode == "camera":
         from detect.Capture import Capture
-        capture = Capture(binocular_camera_cfg_path,"new_cam")
+        capture = Capture(binocular_camera_cfg_path,camera_name)
     else:
         print("mode error")
         exit(1)
@@ -106,11 +220,14 @@ if __name__ == '__main__':
 
     # 场地解算初始化
     converter.camera_to_field_init(capture)
-
-    # 选点后重置视频到第一帧，确保检测从头开始
-    if mode == "video" and hasattr(capture, 'cap'):
-        capture.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        capture.current_frame = 0
+    capture.release()
+    detector_process = start_detector_process(
+        mode,
+        video_path,
+        detector_config_path,
+        binocular_camera_cfg_path,
+        camera_name,
+    )
 
     # ROI初始化
     # roi_selector = ROISelector(capture)
@@ -120,8 +237,6 @@ if __name__ == '__main__':
     N = 10
     fps_queue = deque(maxlen=10)
 
-    detector.create(capture)
-    detector.start()
     if messager:
         messager.start()
 
@@ -135,8 +250,9 @@ if __name__ == '__main__':
     # 可视化小地图绘制queue
 
 
+    main_rate = rospy.Rate(max(detector_process_hz, 1.0))
     print("enter main loop")
-    while True:
+    while not rospy.is_shutdown():
         # 计算fps
         now = time.time()
         fps = 1 / (now - start_time)
@@ -147,20 +263,26 @@ if __name__ == '__main__':
         avg_fps = sum(fps_queue) / len(fps_queue)
 
         print("fps:",avg_fps)
+        draw_payload = {
+            "seq": vision_buffer.get_seq(),
+            "stamp": time.time(),
+            "texts": [],
+            "circles": [],
+            "lines": [],
+        }
 
         # 获得推理结果
-        infer_result = detector.get_results()
+        infer_result = vision_buffer.get_results()
 
         # 需要打包一份给carList
         carList_results = []
         debug_results = []  # 用于小地图可视化
-        result_img = None
 
 
         # 确保推理结果不为空且可以解包
         if infer_result is not None:
             # print(infer_result)
-            result_img, results = infer_result
+            _, results = infer_result
 
             if results is not None:
                 print("results is not none")
@@ -198,9 +320,12 @@ if __name__ == '__main__':
 
                     # 在图像上写距离,位置为xyxy_box的左上角,可以去掉
                     if is_debug:
-                        cv2.putText(result_img, "distance: {:.2f}".format(field_distance), (int(xyxy_box[0]), int(xyxy_box[1]),), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "x: {:.2f}".format(field_xyz[0])+"y:{:.2f}".format(field_xyz[1])+"z:{:.2f}".format(field_xyz[2]), (int(xyxy_box[2]), int(xyxy_box[3]+10),),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        add_text(draw_payload, "distance: {:.2f}".format(field_distance), (xyxy_box[0], xyxy_box[1]))
+                        add_text(
+                            draw_payload,
+                            "x: {:.2f}y:{:.2f}z:{:.2f}".format(field_xyz[0], field_xyz[1], field_xyz[2]),
+                            (xyxy_box[2], xyxy_box[3] + 10),
+                        )
 
                     # 将结果打包
                     carList_results.append([track_id , carList.get_car_id(label) , xywh_box , 1 , center , field_xyz])
@@ -239,6 +364,10 @@ if __name__ == '__main__':
             # 将相机的xyz坐标点投影到图像上，并画一个红色的点
 
             if my_car_id == carList.sentinel_id and my_is_valid:
+                my_reprojected_point = None
+                if len(my_camera_xyz) == 3:
+                    my_camera_xyz_arr = np.array(my_camera_xyz, dtype=np.float64).reshape(1, 3)
+                    my_reprojected_point = converter.camera_to_image(my_camera_xyz_arr)[0]
                 # 记录符合距离要求的距离最近的车
                 min_distance_car_id = -1
                 min_distance = 1000
@@ -251,28 +380,19 @@ if __name__ == '__main__':
                         # 计算距离
                     distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
                     # 将相机的xyz坐标点投影到图像上，并画一个红色的点
-                    if is_debug:
-                        # 检查camera_xyz是否有效（非空且长度为3）
-                        if len(my_camera_xyz) != 3 or len(enemy_camera_xyz) != 3:
-                            continue
-                        my_camera_xyz_arr = np.array(my_camera_xyz, dtype=np.float64).reshape(1, 3)
-                        my_reprojected_point = converter.camera_to_image(my_camera_xyz_arr)[0]  # u,v是图像坐标系下的坐标
-                        cv2.circle(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])), 5,
-                                    (0, 0, 255), -1)
+                    enemy_reprojected_point = None
+                    if len(enemy_camera_xyz) == 3:
                         enemy_camera_xyz_arr = np.array(enemy_camera_xyz, dtype=np.float64).reshape(1, 3)
                         enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz_arr)[0]  # u,v是图像坐标系下的坐标
-
-                        cv2.circle(result_img, (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), 5,
-                                    (0, 0, 255), -1)
-                        # 画线,从我方车辆中心点到敌方车辆中心点
-                        cv2.line(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])),
-                                    (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), (0, 255, 122), 2)
-                        # 写距离
-                        cv2.putText(result_img, "distance: {:.2f}".format(distance), (
-                            int((my_center_xy[0] + enemy_center_xy[0]) / 2),
-                            int((my_center_xy[1] + enemy_center_xy[1]) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
-                                    (0, 255, 122),
-                                    2)
+                    if is_debug and my_reprojected_point is not None and enemy_reprojected_point is not None:
+                        add_circle(draw_payload, my_reprojected_point)
+                        add_circle(draw_payload, enemy_reprojected_point)
+                        add_line(draw_payload, my_reprojected_point, enemy_reprojected_point)
+                        add_text(
+                            draw_payload,
+                            "distance: {:.2f}".format(distance),
+                            ((my_center_xy[0] + enemy_center_xy[0]) / 2, (my_center_xy[1] + enemy_center_xy[1]) / 2),
+                        )
                     # 判断距离是否符合
                     if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
                         continue
@@ -285,10 +405,10 @@ if __name__ == '__main__':
                         min_distance_car_id = enemy_car_id
                 # 在哨兵重投影点上写上最近预警车辆的id，距离和角度
                 if min_distance_car_id != -1:
-                    if is_debug:
-                        cv2.putText(result_img, "id: {}".format(min_distance_car_id), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "distance: {:.2f}".format(min_distance), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "angle: {:.2f}".format(min_distance_angle), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                    if is_debug and my_reprojected_point is not None:
+                        add_text(draw_payload, "id: {}".format(min_distance_car_id), (my_reprojected_point[0], my_reprojected_point[1] - 10))
+                        add_text(draw_payload, "distance: {:.2f}".format(min_distance), (my_reprojected_point[0], my_reprojected_point[1] + 10))
+                        add_text(draw_payload, "angle: {:.2f}".format(min_distance_angle), (my_reprojected_point[0], my_reprojected_point[1] + 30))
                     # 将角度转为象限 ， carID , distance , quadrant
                     quadrant = converter.angle_to_quadrant(min_distance_angle)
                     # zip
@@ -300,22 +420,11 @@ if __name__ == '__main__':
 
 
 
-        if result_img is None:
-            # print("result_img is none")
-            time.sleep(0.01)  # 等待检测线程产出结果
-            continue
         if is_debug:
-            cv2.putText(result_img, "fps: {:.2f}".format(avg_fps), (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122),
-                    2)
-            result_img = cv2.resize(result_img, (1920, 1080))
-        if save_video:
-            out.write(result_img)
-
-        if is_debug: # 用于调试
-            cv2.imshow("frame", result_img) # 不加3帧
+            add_text(draw_payload, "fps: {:.2f}".format(avg_fps), (10, 500), scale=0.75)
+        vision_buffer.publish_result(to_builtin(draw_payload))
         frame_id += 1
-        if cv2.waitKey(1) == ord('q'):
-            break
+        main_rate.sleep()
 
     print("finally")
 
@@ -323,22 +432,20 @@ if __name__ == '__main__':
     if save_video:
         if out is not None:
             out.release()
-    detector.stop_save_video()
+    if detector_process.poll() is None:
+        detector_process.terminate()
+        try:
+            detector_process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            detector_process.kill()
     print(1)
-    detector.stop()
-    print(2)
-    # detector.release()
-    print(3)
-    capture.release()
-    print(4)
 
-    print(4.5)
     if messager:
         messager.receiver.stop()
 
-    print(5)
+    print(2)
     if messager:
         messager.stop()
-    print(6)
+    print(3)
     # lidar.stop()
-    print(7)
+    print(4)
