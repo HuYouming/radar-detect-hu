@@ -40,9 +40,20 @@ lidar:
 
 communication:
   enabled: true # 调试时没有下位机串口可改为 false
+  send_transport: 'ros1' # 'ros1' 时 Messager 不走串口发送，改发 ROS topic
+  position_topic: '/messge/position'
   port: '/dev/ttyUSB0' # 串口
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间
+
+messager:
+  enabled: true
+  state_topic: '/messager/state'
+  main_loop_hz: 100.0
+  map_hz: 4.8
+  sentry_hz: 5.0
+  enemy_hp_hz: 5.0
+  double_effect_hz: 25.0
 
 others:
   is_vs_qd: False # 打青岛大学特殊版本

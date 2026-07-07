@@ -1,4 +1,3 @@
-import argparse
 import rospy
 import numpy as np
 import threading
@@ -84,43 +83,30 @@ TABLE_PITCH_MAX = 12.0
 TABLE_PITCH_PERIOD = 4.0
 TABLE_PUBLISH_HZ = 20.0
 
+DRONE_MAP_PATH = "/root/rm/radar-detect/RM2026_map.pcd"
+DRONE_LIDAR_TOPIC = "/livox/lidar"
+DRONE_FRAME_ID = "world"
+DRONE_ANGLE_MODE = "track"
+DRONE_ENABLE_RECORDING = False
+DRONE_RECORD_RAW = False
+DRONE_RECORD_WORLD = False
+DRONE_RECORD_FORMAT = "both"
+DRONE_RECORD_DIR = None
+DRONE_MAX_RECORD_QUEUE = 50
 
-def str2bool(value):
-    if isinstance(value, bool):
-        return value
-    value = value.lower()
-    if value in ("yes", "true", "t", "1", "y", "on"):
-        return True
-    if value in ("no", "false", "f", "0", "n", "off"):
-        return False
-    raise argparse.ArgumentTypeError("boolean value expected")
 
-
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="LiDAR drone tracker and gimbal angle publisher",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument("--map-path", default="/root/rm/radar-detect/RM2026_map.pcd", help="static map PCD path")
-    parser.add_argument("--lidar-topic", default="/livox/lidar", help="input PointCloud2 topic")
-    parser.add_argument("--frame-id", default="world", help="published PointCloud2 frame id")
-    parser.add_argument("--angle-mode", default="track", choices=("track", "table"), help="angle publishing mode")
-    parser.add_argument("--enable-recording", type=str2bool, nargs="?", const=True, default=True, help="enable point cloud recording")
-    parser.add_argument("--disable-recording", action="store_false", dest="enable_recording", help="disable point cloud recording")
-    parser.add_argument("--record-raw", type=str2bool, nargs="?", const=True, default=True, help="record raw LiDAR frames")
-    parser.add_argument("--no-record-raw", action="store_false", dest="record_raw", help="disable raw LiDAR frame recording")
-    parser.add_argument("--record-world", type=str2bool, nargs="?", const=True, default=True, help="record transformed world frames")
-    parser.add_argument("--no-record-world", action="store_false", dest="record_world", help="disable transformed world frame recording")
-    parser.add_argument("--record-format", default="both", choices=("pcd", "numpy", "both"), help="record output format")
-    parser.add_argument("--record-dir", default=None, help="recording output directory")
-    parser.add_argument("--max-record-queue", type=int, default=50, help="maximum queued frames waiting to be written")
-    args, unknown = parser.parse_known_args(argv)
-    if unknown:
-        print(f"Ignoring unknown arguments: {unknown}")
-    args.angle_mode = args.angle_mode.strip().lower()
-    if not args.record_raw and not args.record_world:
-        args.enable_recording = False
-    return args
+class DroneRunConfig:
+    def __init__(self):
+        self.map_path = DRONE_MAP_PATH
+        self.lidar_topic = DRONE_LIDAR_TOPIC
+        self.frame_id = DRONE_FRAME_ID
+        self.angle_mode = DRONE_ANGLE_MODE.strip().lower()
+        self.record_raw = DRONE_RECORD_RAW
+        self.record_world = DRONE_RECORD_WORLD
+        self.enable_recording = DRONE_ENABLE_RECORDING and (self.record_raw or self.record_world)
+        self.record_format = DRONE_RECORD_FORMAT
+        self.record_dir = DRONE_RECORD_DIR
+        self.max_record_queue = DRONE_MAX_RECORD_QUEUE
 
 
 class TrackedTarget:
@@ -1475,6 +1461,6 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    args = parse_args()
+    args = DroneRunConfig()
     tracker = LidarTracker(args)
     sys.exit(tracker.run())

@@ -1,4 +1,3 @@
-from communication.Messager import Messager
 from detect.Video import Video
 from detect.Capture import Capture
 # from Lidar.Lidar import Lidar
@@ -14,11 +13,10 @@ import os
 import json
 import rospy
 from std_msgs.msg import String
-import subprocess
-import sys
 
 mode = "video" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
 save_video = False # 是否保存视频
+ready_topic = "/radar/main_ready"
 
 def get_new_box(xyxy,xywh):
     '''
@@ -57,6 +55,7 @@ def get_new_box(xyxy,xywh):
 class VisionRosBuffer:
     def __init__(self, detect_topic="/vision/detect", result_topic="/vision/result"):
         self.latest_detection = None
+        self.last_consumed_seq = -1
         self.source_size = None
         self.detect_sub = rospy.Subscriber(detect_topic, String, self.detect_callback, queue_size=1)
         self.result_pub = rospy.Publisher(result_topic, String, queue_size=1)
@@ -77,6 +76,10 @@ class VisionRosBuffer:
         payload = self.latest_detection
         if payload is None:
             return None
+        seq = int(payload.get("seq", -1))
+        if seq <= self.last_consumed_seq:
+            return None
+        self.last_consumed_seq = seq
         results = []
         for item in payload.get("detections", []):
             results.append([
@@ -93,8 +96,32 @@ class VisionRosBuffer:
             return -1
         return int(self.latest_detection.get("seq", -1))
 
+    def get_stamp(self):
+        if self.latest_detection is None:
+            return None
+        return float(self.latest_detection.get("stamp", 0.0))
+
     def publish_result(self, payload):
         self.result_pub.publish(String(data=json.dumps(payload, separators=(',', ':'))))
+
+
+class MessagerStatePublisher:
+    def __init__(self, state_topic):
+        self.state_pub = rospy.Publisher(state_topic, String, queue_size=1)
+        self.seq = 0
+
+    def publish(self, enemy_car_infos, our_car_infos, sentinel_alert_info, vision_seq, vision_stamp):
+        payload = {
+            "seq": self.seq,
+            "stamp": time.time(),
+            "vision_seq": vision_seq,
+            "vision_stamp": vision_stamp,
+            "enemy_car_infos": to_builtin(enemy_car_infos),
+            "our_car_infos": to_builtin(our_car_infos),
+            "sentinel_alert_info": to_builtin(sentinel_alert_info),
+        }
+        self.state_pub.publish(String(data=json.dumps(payload, separators=(',', ':'))))
+        self.seq += 1
 
 
 def to_builtin(value):
@@ -137,25 +164,6 @@ def add_line(draw_payload, p1, p2, color=(0, 255, 122), thickness=2):
     })
 
 
-def start_detector_process(mode, video_path, detector_config_path, camera_config_path, camera_name):
-    cmd = [
-        sys.executable,
-        "-m",
-        "detect.Detector",
-        "--mode",
-        mode,
-        "--video-path",
-        video_path,
-        "--detector-config",
-        detector_config_path,
-        "--camera-config",
-        camera_config_path,
-        "--camera-name",
-        camera_name,
-    ]
-    return subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
-
-
 if __name__ == '__main__':
     video_path = "/root/rm/radar-detect/data/test_video_trimmed.mp4"  # 请改为/path/to/video.avi
     detector_config_path = "./configs/detector_config.yaml"
@@ -164,13 +172,18 @@ if __name__ == '__main__':
     converter_config_path = "./configs/converter_config.yaml"
     camera_name = "new_cam"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
+    mode = main_cfg.get('ctrl', {}).get('MODE', mode)
     detector_cfg = YAML().load(open(detector_config_path, encoding='Utf-8', mode='r'))
     detector_ros_cfg = detector_cfg.get('ros', {})
     detect_topic = detector_ros_cfg.get('detect_topic', '/vision/detect')
     result_topic = detector_ros_cfg.get('result_topic', '/vision/result')
-    detector_process_hz = float(detector_ros_cfg.get('process_hz', 100))
+    detector_process_hz = float(detector_ros_cfg['process_hz'])
+    messager_cfg = main_cfg.get('messager', {})
+    messager_state_topic = messager_cfg.get('state_topic', '/messager/state')
+    messager_enabled = bool(messager_cfg.get('enabled', True))
     if not rospy.core.is_initialized():
         rospy.init_node('radar_vision_main', anonymous=True, disable_signals=True)
+    ready_pub = rospy.Publisher(ready_topic, String, queue_size=1, latch=True)
     # 全局变量
     global_my_color = main_cfg['global']['my_color']
     is_debug = main_cfg['global']['is_debug']
@@ -192,21 +205,13 @@ if __name__ == '__main__':
     else:
         out = None
 
-    # 传递的绘值队列
-    draw_queue = deque(maxlen=10)
     # 类初始化
     vision_buffer = VisionRosBuffer(detect_topic, result_topic)
+    messager_state_pub = MessagerStatePublisher(messager_state_topic)
     # lidar = Lidar(main_cfg)
     converter = Converter(global_my_color,converter_config_path)  # 传入的是path
     carList = CarList(main_cfg)
     logger.log("carList init")
-
-    messager = Messager(main_cfg , draw_queue)
-    logger.log("messager init")
-    # messager = None
-
-
-
 
     if mode == "video":
         capture = Video(video_path)
@@ -221,13 +226,8 @@ if __name__ == '__main__':
     # 场地解算初始化
     converter.camera_to_field_init(capture)
     capture.release()
-    detector_process = start_detector_process(
-        mode,
-        video_path,
-        detector_config_path,
-        binocular_camera_cfg_path,
-        camera_name,
-    )
+    ready_pub.publish(String(data="ready"))
+    logger.log(f"main ready published: {ready_topic}")
 
     # ROI初始化
     # roi_selector = ROISelector(capture)
@@ -236,9 +236,6 @@ if __name__ == '__main__':
     # fps计算
     N = 10
     fps_queue = deque(maxlen=10)
-
-    if messager:
-        messager.start()
 
     # 创建一个空列表来存储所有检测的结果
     all_detections = []
@@ -252,200 +249,189 @@ if __name__ == '__main__':
 
     main_rate = rospy.Rate(max(detector_process_hz, 1.0))
     print("enter main loop")
-    while not rospy.is_shutdown():
-        # 计算fps
-        now = time.time()
-        fps = 1 / (now - start_time)
-        start_time = now
-        # 将FPS值添加到队列中
-        fps_queue.append(fps)
-        # 计算平均FPS
-        avg_fps = sum(fps_queue) / len(fps_queue)
+    try:
+        while not rospy.is_shutdown():
+            # 计算fps
+            now = time.time()
+            fps = 1 / (now - start_time)
+            start_time = now
+            # 将FPS值添加到队列中
+            fps_queue.append(fps)
+            # 计算平均FPS
+            avg_fps = sum(fps_queue) / len(fps_queue)
 
-        print("fps:",avg_fps)
-        draw_payload = {
-            "seq": vision_buffer.get_seq(),
-            "stamp": time.time(),
-            "texts": [],
-            "circles": [],
-            "lines": [],
-        }
+            print("fps:",avg_fps)
+            draw_payload = {
+                "seq": vision_buffer.get_seq(),
+                "detect_stamp": vision_buffer.get_stamp(),
+                "stamp": time.time(),
+                "texts": [],
+                "circles": [],
+                "lines": [],
+            }
 
-        # 获得推理结果
-        infer_result = vision_buffer.get_results()
+            # 获得推理结果
+            infer_result = vision_buffer.get_results()
+            if infer_result is None:
+                main_rate.sleep()
+                continue
 
-        # 需要打包一份给carList
-        carList_results = []
-        debug_results = []  # 用于小地图可视化
+            # 需要打包一份给carList
+            carList_results = []
+            debug_results = []  # 用于小地图可视化
 
 
-        # 确保推理结果不为空且可以解包
-        if infer_result is not None:
-            # print(infer_result)
-            _, results = infer_result
+            # 确保推理结果不为空且可以解包
+            if infer_result is not None:
+                # print(infer_result)
+                _, results = infer_result
 
-            if results is not None:
-                print("results is not none")
-                # 对每个结果进行分析 , 进行目标定位
-                for result in results:
+                if results is not None:
+                    print("results is not none")
+                    # 对每个结果进行分析 , 进行目标定位
+                    for result in results:
 
                     # 对每个检测框进行处理，获取对应点云
                     # 结果：[xyxy_box, xywh_box , track_id , label ]
-                    xyxy_box, xywh_box ,  track_id , label, stamp = result # xywh的xy是中心点的xy
+                        xyxy_box, xywh_box ,  track_id , label, stamp = result # xywh的xy是中心点的xy
 
                     # 如果没有分类出是什么车直接跳过
-                    if label == "NULL":
-                        continue
+                        if label == "NULL":
+                            continue
                     # if global_my_color == "Red" and carList.get_car_id(label) < 100 and carList.get_car_id(label) != 7 and carList.get_car_id(label)!=1:
                     #     continue
                     # if global_my_color == "Blue" and carList.get_car_id(label) > 100 and carList.get_car_id(label) != 107 and carList.get_car_id(label)!=101:
                     #     continue
 
                     # 获取新xyxy_box , 原来是左上角和右下角，现在想要中心点保持不变，宽高设为原来的一半，再计算一个新的xyxy_box,可封装
-                    div_times = 1.01
-                    new_w = xywh_box[2] / div_times
-                    new_h = xywh_box[3] / div_times
-                    new_xywh_box = get_new_box(xyxy_box, xywh_box)
-                    center = converter.detection_main(new_xywh_box,t=stamp)
-                    center = converter.vision_locator.post_process(center, global_my_color)
-                    distance = converter.get_distance(center)
+                        div_times = 1.01
+                        new_w = xywh_box[2] / div_times
+                        new_h = xywh_box[3] / div_times
+                        new_xywh_box = get_new_box(xyxy_box, xywh_box)
+                        center = converter.detection_main(new_xywh_box,t=stamp)
+                        center = converter.vision_locator.post_process(center, global_my_color)
+                        distance = converter.get_distance(center)
 
-                    if distance == 0:
-                        continue
+                        if distance == 0:
+                            continue
 
                     # 将点转到赛场坐标系下
-                    field_xyz = center
+                        field_xyz = center
                     # 计算赛场坐标系下的距离
-                    field_distance = converter.get_distance(field_xyz)
+                        field_distance = converter.get_distance(field_xyz)
 
                     # 在图像上写距离,位置为xyxy_box的左上角,可以去掉
-                    if is_debug:
-                        add_text(draw_payload, "distance: {:.2f}".format(field_distance), (xyxy_box[0], xyxy_box[1]))
-                        add_text(
-                            draw_payload,
-                            "x: {:.2f}y:{:.2f}z:{:.2f}".format(field_xyz[0], field_xyz[1], field_xyz[2]),
-                            (xyxy_box[2], xyxy_box[3] + 10),
-                        )
+                        if is_debug:
+                            add_text(draw_payload, "distance: {:.2f}".format(field_distance), (xyxy_box[0], xyxy_box[1]))
+                            add_text(
+                                draw_payload,
+                                "x: {:.2f}y:{:.2f}z:{:.2f}".format(field_xyz[0], field_xyz[1], field_xyz[2]),
+                                (xyxy_box[2], xyxy_box[3] + 10),
+                            )
 
                     # 将结果打包
-                    carList_results.append([track_id , carList.get_car_id(label) , xywh_box , 1 , center , field_xyz])
-                    debug_results.append([center, carList.get_car_id(label)])
+                        carList_results.append([track_id , carList.get_car_id(label) , xywh_box , 1 , center , field_xyz])
+                        debug_results.append([center, carList.get_car_id(label)])
 
-                if is_debug and len(debug_results) > 0:
-                    converter.vision_locator.visualize(debug_results)
+                    if is_debug and len(debug_results) > 0:
+                        converter.vision_locator.visualize(debug_results)
 
-                # 将结果传入carList
-        carList.update_car_info(carList_results)
-        all_infos = carList.get_all_info() # 此步不做trust的筛选，留给messager做
-        my_car_infos = []
-        enemy_car_infos = []
-        # result in results:[car_id , center_xy , camera_xyz , field_xyz]
-        # 如果是我方车辆，找到所有敌方车辆，计算与每一台敌方车辆距离，并在图像两车辆中心点之间画线，线上写距离
-        for all_info in all_infos:
-            track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
-            # 将信息分两个列表存储
-            if color == global_my_color:
-                if track_id == -1:
-                    continue
-                my_car_infos.append(all_info)
-            else:
-                enemy_car_infos.append(all_info)
-                if track_id != -1:
-                    # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
-                    all_detections.append([frame_id] + list(all_info))
+                    # 将结果传入carList
+            carList.update_car_info(carList_results)
+            all_infos = carList.get_all_info() # 此步不做trust的筛选，留给messager做
+            my_car_infos = []
+            enemy_car_infos = []
+            sentinel_alert_info = []
+            # result in results:[car_id , center_xy , camera_xyz , field_xyz]
+            # 如果是我方车辆，找到所有敌方车辆，计算与每一台敌方车辆距离，并在图像两车辆中心点之间画线，线上写距离
+            for all_info in all_infos:
+                track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
+                # 将信息分两个列表存储
+                if color == global_my_color:
+                    if track_id == -1:
+                        continue
+                    my_car_infos.append(all_info)
+                else:
+                    enemy_car_infos.append(all_info)
+                    if track_id != -1:
+                        # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
+                        all_detections.append([frame_id] + list(all_info))
 
-        # 通信
-        if messager:
-            messager.update_enemy_car_infos(enemy_car_infos)
-            messager.update_our_car_infos(our_car_infos=my_car_infos)
-        # 画线
-        for my_car_info in my_car_infos:
-            my_track_id , my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color , my_is_valid= my_car_info
+            # 画线
+            for my_car_info in my_car_infos:
+                my_track_id , my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color , my_is_valid= my_car_info
             # 将相机的xyz坐标点投影到图像上，并画一个红色的点
 
-            if my_car_id == carList.sentinel_id and my_is_valid:
-                my_reprojected_point = None
-                if len(my_camera_xyz) == 3:
-                    my_camera_xyz_arr = np.array(my_camera_xyz, dtype=np.float64).reshape(1, 3)
-                    my_reprojected_point = converter.camera_to_image(my_camera_xyz_arr)[0]
-                # 记录符合距离要求的距离最近的车
-                min_distance_car_id = -1
-                min_distance = 1000
-                min_distance_angle = -1
-                for enemy_car_info in enemy_car_infos:
-                    enemy_track_id , enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color , enemy_is_valid= enemy_car_info
+                if my_car_id == carList.sentinel_id and my_is_valid:
+                    my_reprojected_point = None
+                    if len(my_camera_xyz) == 3:
+                        my_camera_xyz_arr = np.array(my_camera_xyz, dtype=np.float64).reshape(1, 3)
+                        my_reprojected_point = converter.camera_to_image(my_camera_xyz_arr)[0]
+                    # 记录符合距离要求的距离最近的车
+                    min_distance_car_id = -1
+                    min_distance = 1000
+                    min_distance_angle = -1
+                    for enemy_car_info in enemy_car_infos:
+                        enemy_track_id , enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color , enemy_is_valid= enemy_car_info
                     # 如果不可信，跳过
-                    if not enemy_is_valid or enemy_track_id == -1: # 不可信或未初始化
-                        continue
+                        if not enemy_is_valid or enemy_track_id == -1: # 不可信或未初始化
+                            continue
                         # 计算距离
-                    distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
+                        distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
                     # 将相机的xyz坐标点投影到图像上，并画一个红色的点
-                    enemy_reprojected_point = None
-                    if len(enemy_camera_xyz) == 3:
-                        enemy_camera_xyz_arr = np.array(enemy_camera_xyz, dtype=np.float64).reshape(1, 3)
-                        enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz_arr)[0]  # u,v是图像坐标系下的坐标
-                    if is_debug and my_reprojected_point is not None and enemy_reprojected_point is not None:
-                        add_circle(draw_payload, my_reprojected_point)
-                        add_circle(draw_payload, enemy_reprojected_point)
-                        add_line(draw_payload, my_reprojected_point, enemy_reprojected_point)
-                        add_text(
-                            draw_payload,
-                            "distance: {:.2f}".format(distance),
-                            ((my_center_xy[0] + enemy_center_xy[0]) / 2, (my_center_xy[1] + enemy_center_xy[1]) / 2),
-                        )
+                        enemy_reprojected_point = None
+                        if len(enemy_camera_xyz) == 3:
+                            enemy_camera_xyz_arr = np.array(enemy_camera_xyz, dtype=np.float64).reshape(1, 3)
+                            enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz_arr)[0]  # u,v是图像坐标系下的坐标
+                        if is_debug and my_reprojected_point is not None and enemy_reprojected_point is not None:
+                            add_circle(draw_payload, my_reprojected_point)
+                            add_circle(draw_payload, enemy_reprojected_point)
+                            add_line(draw_payload, my_reprojected_point, enemy_reprojected_point)
+                            add_text(
+                                draw_payload,
+                                "distance: {:.2f}".format(distance),
+                                ((my_center_xy[0] + enemy_center_xy[0]) / 2, (my_center_xy[1] + enemy_center_xy[1]) / 2),
+                            )
                     # 判断距离是否符合
-                    if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
-                        continue
+                        if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
+                            continue
 
-                    if distance < min_distance:
+                        if distance < min_distance:
                         # 计算角度，设赛场x轴正方向为0度，顺时针为正
-                        angle = np.arctan2(enemy_field_xyz[1] - my_field_xyz[1], enemy_field_xyz[0] - my_field_xyz[0]) * 180 / np.pi
-                        min_distance = distance
-                        min_distance_angle = angle
-                        min_distance_car_id = enemy_car_id
-                # 在哨兵重投影点上写上最近预警车辆的id，距离和角度
-                if min_distance_car_id != -1:
-                    if is_debug and my_reprojected_point is not None:
-                        add_text(draw_payload, "id: {}".format(min_distance_car_id), (my_reprojected_point[0], my_reprojected_point[1] - 10))
-                        add_text(draw_payload, "distance: {:.2f}".format(min_distance), (my_reprojected_point[0], my_reprojected_point[1] + 10))
-                        add_text(draw_payload, "angle: {:.2f}".format(min_distance_angle), (my_reprojected_point[0], my_reprojected_point[1] + 30))
-                    # 将角度转为象限 ， carID , distance , quadrant
-                    quadrant = converter.angle_to_quadrant(min_distance_angle)
-                    # zip
-                    sentinel_alert_info = [min_distance_car_id, min_distance, quadrant]
-                    if messager:
-                        messager.update_sentinel_alert_info(sentinel_alert_info)
+                            angle = np.arctan2(enemy_field_xyz[1] - my_field_xyz[1], enemy_field_xyz[0] - my_field_xyz[0]) * 180 / np.pi
+                            min_distance = distance
+                            min_distance_angle = angle
+                            min_distance_car_id = enemy_car_id
+                    # 在哨兵重投影点上写上最近预警车辆的id，距离和角度
+                    if min_distance_car_id != -1:
+                        if is_debug and my_reprojected_point is not None:
+                            add_text(draw_payload, "id: {}".format(min_distance_car_id), (my_reprojected_point[0], my_reprojected_point[1] - 10))
+                            add_text(draw_payload, "distance: {:.2f}".format(min_distance), (my_reprojected_point[0], my_reprojected_point[1] + 10))
+                            add_text(draw_payload, "angle: {:.2f}".format(min_distance_angle), (my_reprojected_point[0], my_reprojected_point[1] + 30))
+                        # 将角度转为象限 ， carID , distance , quadrant
+                        quadrant = converter.angle_to_quadrant(min_distance_angle)
+                        # zip
+                        sentinel_alert_info = [min_distance_car_id, min_distance, quadrant]
 
+            if messager_enabled:
+                messager_state_pub.publish(
+                    enemy_car_infos,
+                    my_car_infos,
+                    sentinel_alert_info,
+                    vision_buffer.get_seq(),
+                    vision_buffer.get_stamp(),
+                )
 
+            if is_debug:
+                add_text(draw_payload, "fps: {:.2f}".format(avg_fps), (10, 500), scale=0.75)
+            vision_buffer.publish_result(to_builtin(draw_payload))
+            frame_id += 1
+            main_rate.sleep()
+    finally:
+        print("finally")
 
-
-
-        if is_debug:
-            add_text(draw_payload, "fps: {:.2f}".format(avg_fps), (10, 500), scale=0.75)
-        vision_buffer.publish_result(to_builtin(draw_payload))
-        frame_id += 1
-        main_rate.sleep()
-
-    print("finally")
-
-    cv2.destroyAllWindows()
-    if save_video:
-        if out is not None:
-            out.release()
-    if detector_process.poll() is None:
-        detector_process.terminate()
-        try:
-            detector_process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            detector_process.kill()
-    print(1)
-
-    if messager:
-        messager.receiver.stop()
-
-    print(2)
-    if messager:
-        messager.stop()
-    print(3)
-    # lidar.stop()
-    print(4)
+        cv2.destroyAllWindows()
+        if save_video:
+            if out is not None:
+                out.release()
+        # lidar.stop()

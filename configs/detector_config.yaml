@@ -19,6 +19,8 @@ ros:
   frame_id: "vision_camera"
   process_hz: 100
   detect_publish_hz: 100
+  alignment_cache_size: 8
+  timestamp_tolerance_sec: 0.002
   display_enabled: True
   display_width: 1920
   display_height: 1080

@@ -10,13 +10,29 @@ import time
 import numpy as np
 # import cupy as cp
 import os
-import argparse
+from collections import OrderedDict
 try:
     import rospy
     from std_msgs.msg import String
 except ImportError:
     rospy = None
     String = None
+MAIN_CONFIG_PATH = "./configs/main_config.yaml"
+VIDEO_PATH = "/root/rm/radar-detect/data/test_video_trimmed.mp4"
+DETECTOR_CONFIG_PATH = "./configs/detector_config.yaml"
+CAMERA_CONFIG_PATH = "./configs/bin_cam_config.yaml"
+CAMERA_NAME = "new_cam"
+READY_TOPIC = "/radar/main_ready"
+
+
+def get_run_mode():
+    try:
+        cfg = YAML().load(open(MAIN_CONFIG_PATH, encoding='Utf-8', mode='r'))
+        return cfg.get('ctrl', {}).get('MODE', 'camera')
+    except Exception:
+        return 'camera'
+
+
 # 封装Tracker类，
 
 
@@ -99,10 +115,13 @@ class Detector:
         self.display_enabled = bool(ros_cfg.get('display_enabled', True))
         self.display_width = int(ros_cfg.get('display_width', 1920))
         self.display_height = int(ros_cfg.get('display_height', 1080))
+        self.alignment_cache_size = int(ros_cfg.get('alignment_cache_size', 8))
+        self.timestamp_tolerance_sec = float(ros_cfg.get('timestamp_tolerance_sec', 0.002))
         self.ros_interfaces_ready = False
         self.detect_pub = None
         self.result_sub = None
-        self.latest_draw_payload = None
+        self.frame_cache = OrderedDict()
+        self.pending_draw_payloads = OrderedDict()
         self.seq = 0
         self._last_process_time = 0.0
         self._last_detect_publish_time = 0.0
@@ -136,9 +155,16 @@ class Detector:
 
     def result_callback(self, msg):
         try:
-            self.latest_draw_payload = json.loads(msg.data)
+            payload = json.loads(msg.data)
         except json.JSONDecodeError as exc:
             rospy.logwarn(f"invalid {self.result_topic} payload: {exc}")
+            return
+        seq = payload.get("seq")
+        if seq is None:
+            return
+        self.pending_draw_payloads[int(seq)] = payload
+        while len(self.pending_draw_payloads) > self.alignment_cache_size:
+            self.pending_draw_payloads.popitem(last=False)
 
     def _interval_elapsed(self, now, last_time, hz):
         if hz <= 0:
@@ -185,8 +211,7 @@ class Detector:
     def _int_point(self, point):
         return int(point[0]), int(point[1])
 
-    def draw_result_payload(self, frame):
-        payload = self.latest_draw_payload
+    def draw_result_payload(self, frame, payload):
         if payload is None or frame is None:
             return
 
@@ -227,6 +252,40 @@ class Detector:
             show_frame = cv2.resize(frame, (self.display_width, self.display_height))
         cv2.imshow("frame", show_frame)
         cv2.waitKey(1)
+
+    def cache_frame(self, seq, stamp, frame):
+        self.frame_cache[int(seq)] = {
+            "stamp": float(stamp),
+            "frame": frame.copy(),
+        }
+        while len(self.frame_cache) > self.alignment_cache_size:
+            self.frame_cache.popitem(last=False)
+
+    def render_aligned_results(self):
+        if not self.pending_draw_payloads:
+            return
+        rendered = []
+        for seq, payload in list(self.pending_draw_payloads.items()):
+            cached = self.frame_cache.get(seq)
+            if cached is None:
+                oldest_seq = next(iter(self.frame_cache), None)
+                if oldest_seq is not None and seq < oldest_seq:
+                    rendered.append(seq)
+                continue
+            detect_stamp = payload.get("detect_stamp")
+            if detect_stamp is None:
+                rendered.append(seq)
+                continue
+            if abs(float(detect_stamp) - cached["stamp"]) > self.timestamp_tolerance_sec:
+                rendered.append(seq)
+                continue
+            frame = cached["frame"]
+            self.draw_result_payload(frame, payload)
+            self.display_frame(frame)
+            rendered.append(seq)
+        for seq in rendered:
+            self.pending_draw_payloads.pop(seq, None)
+            self.frame_cache.pop(seq, None)
 
     # 绑定图像源。保留 create/start/stop 接口，内部不再创建线程。
     def create(self, capture):
@@ -517,6 +576,7 @@ class Detector:
     def process_once(self):
         if not self.working_flag or self.capture is None:
             return None
+        self.render_aligned_results()
         now = time.time()
         if not self._interval_elapsed(now, self._last_process_time, self.process_hz):
             return self._results
@@ -531,21 +591,19 @@ class Detector:
         result_img, results = infer_result
         stamp = time.time()
         self._results = infer_result
+        self.cache_frame(self.seq, stamp, result_img)
         if self._interval_elapsed(stamp, self._last_detect_publish_time, self.detect_publish_hz):
             self.publish_detection(frame, results, stamp)
             self._last_detect_publish_time = stamp
-        self.draw_result_payload(result_img)
-        self.display_frame(result_img)
         self.seq += 1
+        self.render_aligned_results()
         return infer_result
 
     def spin(self):
         self.start()
-        rate = rospy.Rate(max(self.process_hz, 1.0)) if rospy is not None else None
         while not rospy.is_shutdown():
             self.process_once()
-            if rate is not None:
-                rate.sleep()
+            rospy.sleep(0.001)
 
     # 方法，来源于主线程调取最新的结果
     def get_results(self):
@@ -553,16 +611,17 @@ class Detector:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Vision detector ROS node")
-    parser.add_argument("--mode", choices=["video", "camera"], default="camera")
-    parser.add_argument("--video-path", default="/root/rm/radar-detect/data/test_video_trimmed.mp4")
-    parser.add_argument("--detector-config", default="./configs/detector_config.yaml")
-    parser.add_argument("--camera-config", default="./configs/bin_cam_config.yaml")
-    parser.add_argument("--camera-name", default="new_cam")
-    args = parser.parse_args()
+    mode = get_run_mode()
+    if rospy is None or String is None:
+        raise RuntimeError("rospy is required for detector launch")
+    if not rospy.core.is_initialized():
+        rospy.init_node('vision_detector', anonymous=True, disable_signals=True)
+    rospy.loginfo(f"waiting for main ready topic: {READY_TOPIC}")
+    rospy.wait_for_message(READY_TOPIC, String)
+    rospy.loginfo(f"received main ready topic: {READY_TOPIC}")
 
-    capture = build_capture(args.mode, args.video_path, args.camera_config, args.camera_name)
-    detector = Detector(args.detector_config)
+    capture = build_capture(mode, VIDEO_PATH, CAMERA_CONFIG_PATH, CAMERA_NAME)
+    detector = Detector(DETECTOR_CONFIG_PATH)
     detector.create(capture)
     try:
         detector.spin()

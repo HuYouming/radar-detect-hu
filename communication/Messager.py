@@ -3,12 +3,14 @@ from .Receiver import Receiver
 from .Topo_map.topo_lidar import *
 from random import randint
 
+import copy
+import json
 import multiprocessing
-import threading
 import time
 from shapely.geometry import Point, Polygon
 import numpy as np
 import cv2
+from ruamel.yaml import YAML
 from Log.Log import RadarLog
 from Tools.Tools import Tools
 from Radio.interferance_level_sender import InterferenceSender
@@ -25,13 +27,22 @@ from .predictor import CarKalmanPredictor
 from .hero_topo_predictor.predict_hero import Predictor as Hero_Predictor
 from .engine_topo_predictor.predict_engine import Predictor
 
+MAIN_CONFIG_PATH = "./configs/main_config.yaml"
+
 
 # from .assit_yaw_pitch import Hero_Assit
 
 class Messager:
-    def __init__(self, cfg, draw_queue):
+    def __init__(self, cfg):
         # 全局变量
         self.is_debug = cfg["global"]["is_debug"]
+        messager_cfg = cfg.get('messager', {})
+        self.state_topic = messager_cfg.get('state_topic', '/messager/state')
+        self.main_loop_hz = float(messager_cfg['main_loop_hz'])
+        self.map_hz = float(messager_cfg['map_hz'])
+        self.sentry_hz = float(messager_cfg['sentry_hz'])
+        self.enemy_hp_hz = float(messager_cfg['enemy_hp_hz'])
+        self.double_effect_hz = float(messager_cfg['double_effect_hz'])
         # 创建共享内存变量
         self.shared_is_activating_double_effect = multiprocessing.Value('b', False)  # 共享内存，用于多进程
         self.shared_my_health_list = multiprocessing.Array('i', [100, 100, 100, 100, 100, 0, 1500, 5000])  # 己方1-4和7号前哨站和基地的血量信息
@@ -41,29 +52,33 @@ class Messager:
         self.shared_time_left = multiprocessing.Value('i', -1)  # 剩余时间
         self.shared_dart_target = multiprocessing.Value('i', 0)  # 飞镖目标
         self.shared_our_buffer_status = multiprocessing.Array('i', [0, 0, 0, 0, 0, 0])  # 己方能量机关状态 TODO
-        # ROS 订阅数据缓存（线程安全，替代原来的共享内存）
-        self._drone_field_lock = threading.Lock()
+        # ROS 订阅数据缓存
         self._drone_field_xyz = None  # [x, y, z] 赛场坐标系下的无人机坐标
         self._drone_field_timestamp = 0.0
 
         self.shared_interferance_level = multiprocessing.Value('i', 1)  # 当前干扰等级，默认1级
         self.interferance_level_list = [1, 2, 3]  # 可用的干扰等级列表
-        self._jam_key_lock = threading.Lock()
         self._jam_key = None  # 干扰波密钥
         self._jam_key_timestamp = 0.0
 
         # 敌方血量订阅缓存（替代 UDP 获取）
-        self._health_lock = threading.Lock()
         self._enemy_health_array = None  # [hero, engineer, infantry_3, infantry_4, reserved, sentry]
         self._health_timestamp = 0.0
-        self.draw_queue = draw_queue
         self.dart_target_times = [0, 0, 0]
         # log部分
         self.logger = RadarLog("Messager")
         self.status_logger = RadarLog("Messager_Status")
 
         # 发送部分
-        self.sender = Sender(cfg)
+        communication_cfg = cfg.get('communication', {})
+        self.position_topic = communication_cfg.get('position_topic', '/messge/position')
+        self.use_ros_position = communication_cfg.get('send_transport', 'ros1') == 'ros1'
+        sender_cfg = copy.deepcopy(cfg)
+        if self.use_ros_position:
+            sender_cfg['communication']['enabled'] = False
+        self.sender = Sender(sender_cfg)
+        self.position_pub = None
+        self.position_seq = 0
         self.double_effect_times = 0  # 第几次发送双倍易伤效果决策,第一次发送值为1，第二次发送值为2，每局最多只能发送到2,不能发送3
         self.udp_sender = InterferenceSender("192.168.3.99", 40003)  # 用于发送干扰等级的UDP发送器，独立于主Sender，专门发送int类型的干扰等级数据
 
@@ -89,12 +104,6 @@ class Messager:
         self.send_hero_assit_info = {}  # 英雄协助信息
         self.time_left = -1  # 剩余时间
         self.last_time_left = -1  # 上次剩余时间 , 用于判断是否更新
-
-        # 线程锁
-        self.map_lock = threading.Lock()  # 小地图敌方车辆信息锁
-        self.sentinel_lock = threading.Lock()  # 哨兵预警信息锁
-        self.our_car_lock = threading.Lock()  # 我方车辆信息锁
-        # self.wave_lock = threading.Lock()  # 解析波信息锁（已删除，改为ROS订阅）
 
         # predictor
         self.predictor = {1: CarKalmanPredictor(0, 0), 101: CarKalmanPredictor(0, 0),
@@ -128,8 +137,6 @@ class Messager:
             print("检查main_config里己方颜色是否大写！")
             exit(0)
 
-        # 线程
-        self.threading = threading.Thread(target=self.main_loop, daemon=True)
         # 时间记录
         self.last_send_double_effect_time = time.time()
         self.last_send_map_time = time.time()
@@ -212,9 +219,6 @@ class Messager:
         # for area in self.area_list:
         #     print(area)
 
-        # event
-        # self.send_double_effect_decision_event = threading.Event()
-
         # flag
         self.working_flag = False
 
@@ -224,14 +228,6 @@ class Messager:
             self.last_time_left = self.time_left
             return True
         return False
-
-    # 将想要绘值的图片放入队列
-
-    def put_draw_queue(self, image):
-        try:
-            self.draw_queue.put(image)
-        except Exception as e:
-            self.logger.log(f"Put image into draw queue error:{e}")
 
     # 根据共享内存变量更新握在手上的决策信息
     def update_shared_info(self):
@@ -450,8 +446,6 @@ class Messager:
 
 
 
-    # 开启线程
-
     # ==================== ROS 订阅接口 ====================
 
     def _init_ros_subscribers(self):
@@ -478,8 +472,42 @@ class Messager:
             rospy.Subscriber("/radar/enemy/health_array", Float32MultiArray, self._health_array_callback, queue_size=5)
             self.logger.log("[ROS] 已订阅 /radar/enemy/health_array")
 
+            rospy.Subscriber(self.state_topic, String, self._vision_state_callback, queue_size=1)
+            self.logger.log(f"[ROS] 已订阅 {self.state_topic}")
+
+            self.position_pub = rospy.Publisher(self.position_topic, String, queue_size=20)
+            self.logger.log(f"[ROS] 已发布 {self.position_topic}")
+
         except Exception as e:
             self.logger.log(f"[ROS] 订阅初始化失败: {e}")
+
+    def _to_builtin(self, value):
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, bytes):
+            return value.hex()
+        if isinstance(value, (list, tuple)):
+            return [self._to_builtin(item) for item in value]
+        if isinstance(value, dict):
+            return {key: self._to_builtin(item) for key, item in value.items()}
+        return value
+
+    def publish_position(self, msg_type, payload, rate_hz=None, tx_buff=None):
+        if self.position_pub is None:
+            return
+        msg = {
+            "seq": self.position_seq,
+            "stamp": rospy.Time.now().to_sec() if rospy.core.is_initialized() else time.time(),
+            "type": msg_type,
+            "rate_hz": rate_hz,
+            "payload": self._to_builtin(payload),
+        }
+        if tx_buff is not None:
+            msg["frame_hex"] = tx_buff.hex()
+        self.position_pub.publish(String(data=json.dumps(msg, separators=(',', ':'))))
+        self.position_seq += 1
 
     def _drone_field_callback(self, msg):
         try:
@@ -491,76 +519,65 @@ class Messager:
             # 取第一个点（单点）
             x, y, z = points[0]
 
-            with self._drone_field_lock:
-                self._drone_field_xyz = [float(x), float(y), float(z)]
-                if self.my_color == "Blue":
-                    self._drone_field_xyz[0] = 28 - self._drone_field_xyz[0]
-                    self._drone_field_xyz[1] = 15 - self._drone_field_xyz[1]
-                self._drone_field_timestamp = msg.header.stamp.to_sec()
+            self._drone_field_xyz = [float(x), float(y), float(z)]
+            if self.my_color == "Blue":
+                self._drone_field_xyz[0] = 28 - self._drone_field_xyz[0]
+                self._drone_field_xyz[1] = 15 - self._drone_field_xyz[1]
+            self._drone_field_timestamp = msg.header.stamp.to_sec()
 
         except Exception as e:
             self.logger.log(f"[ROS] /drone_field_xyz 解析错误: {e}")
 
     def _jam_key_callback(self, msg):
         try:
-            with self._jam_key_lock:
-                self._jam_key = ''.join(reversed(msg.data))
-                self.logger.log(f"received jam key: {msg.data}, send jam key: {self._jam_key}")
-                self._jam_key_timestamp = rospy.Time.now().to_sec()
+            self._jam_key = ''.join(reversed(msg.data))
+            self.logger.log(f"received jam key: {msg.data}, send jam key: {self._jam_key}")
+            self._jam_key_timestamp = rospy.Time.now().to_sec()
 
         except Exception as e:
             self.logger.log(f"[ROS] /radar/enemy/jam_key 解析错误: {e}")
+
+    def _vision_state_callback(self, msg):
+        try:
+            payload = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            self.logger.log(f"[ROS] {self.state_topic} JSON解析错误: {exc}")
+            return
+        self.update_enemy_car_infos(payload.get("enemy_car_infos", []))
+        self.update_our_car_infos(payload.get("our_car_infos", []))
+        self.update_sentinel_alert_info(payload.get("sentinel_alert_info", []))
 
     def get_drone_field_xyz(self):
         if self.my_color == "Blue":
             default_xyz = [0.5, 14.5, 1]  # 敌方停机坪坐标
         else:
             default_xyz = [27.5, 0.5, 1]  # 敌方停机坪坐标
-        with self._drone_field_lock:
-            if self._drone_field_xyz is not None:
-                return self._drone_field_xyz.copy() if self._drone_field_xyz is not None else None
-            else:
-                return default_xyz
+        if self._drone_field_xyz is not None:
+            return self._drone_field_xyz.copy()
+        return default_xyz
 
     def get_jam_key(self):
-        with self._jam_key_lock:
-            return self._jam_key
+        return self._jam_key
 
     def is_drone_data_fresh(self, timeout=1.0):
-        with self._drone_field_lock:
-            if self._drone_field_xyz is None:
-                return False
-            return (rospy.Time.now().to_sec() - self._drone_field_timestamp) < timeout
+        if self._drone_field_xyz is None:
+            return False
+        return (rospy.Time.now().to_sec() - self._drone_field_timestamp) < timeout
 
     def _health_array_callback(self, msg):
         try:
-            with self._health_lock:
-                self._enemy_health_array = [int(v) for v in msg.data]
-                self._health_timestamp = rospy.Time.now().to_sec()
+            self._enemy_health_array = [int(v) for v in msg.data]
+            self._health_timestamp = rospy.Time.now().to_sec()
         except Exception as e:
             self.logger.log(f"[ROS] /radar/enemy/health_array 解析错误: {e}")
 
     def get_enemy_health_from_ros(self):
-        with self._health_lock:
-            return self._enemy_health_array.copy() if self._enemy_health_array is not None else None
+        return self._enemy_health_array.copy() if self._enemy_health_array is not None else None
 
     def is_health_data_fresh(self, timeout=2.0):
-        with self._health_lock:
-            if self._enemy_health_array is None:
-                return False
-            return (rospy.Time.now().to_sec() - self._health_timestamp) < timeout
-
-    def start(self):
-        self.working_flag = True
-        self.logger.log("Messager start")
-        self.threading.start()
-
-    # 关闭线程
-    def stop(self):
-        self.logger.log("Messager stop")
-        self.working_flag = False
-        self.receiver.stop()
-        # self.threading.join()
+        if self._enemy_health_array is None:
+            return False
+        return (rospy.Time.now().to_sec() - self._health_timestamp) < timeout
 
     # 更新剩余时间
     def update_time_left(self):
@@ -569,11 +586,10 @@ class Messager:
     # 更新敌方车辆信息
     def update_enemy_car_infos(self, enemy_car_infos):
         # 如果为空，直接返回
-        with self.map_lock:
-            self.enemy_car_infos = enemy_car_infos
-            self.parse_ene_hero_xyz()
-            self.parse_engine_xyz()
-            # self.update_enemy(enemy_car_infos)
+        self.enemy_car_infos = enemy_car_infos
+        self.parse_ene_hero_xyz()
+        self.parse_engine_xyz()
+        # self.update_enemy(enemy_car_infos)
         # print(f"enemy car info{self.enemy_car_infos}")
         # self.logger.log(f"update enemy car infos{self.enemy_car_infos}")
 
@@ -591,42 +607,55 @@ class Messager:
 
     # 更新我方车辆信息
     def update_our_car_infos(self, our_car_infos):
-        with self.our_car_lock:
-            self.our_car_infos = our_car_infos
-            self.parse_hero_xyz()
+        self.our_car_infos = our_car_infos
+        self.parse_hero_xyz()
 
     # 更新我方无人机的坐标（已弃用，改为 ROS 订阅 /drone_field_xyz）
     def update_our_drone_info(self, our_drone_info):
-        with self.our_car_lock:
-            self.our_drone_info = our_drone_info
+        self.our_drone_info = our_drone_info
 
     # 更新敌方无人机的坐标（已弃用，改为 ROS 订阅 /drone_field_xyz）
     def update_enemy_drone_info(self, enemy_drone_info):
-        with self.our_car_lock:
-            self.enemy_drone_info = enemy_drone_info
+        self.enemy_drone_info = enemy_drone_info
 
     # 更新哨兵预警信息
     def update_sentinel_alert_info(self, sentinel_alert_info):
-        with self.sentinel_lock:
-            # print("update",sentinel_alert_info)
-            self.sentinel_alert_info = sentinel_alert_info
+        # print("update",sentinel_alert_info)
+        self.sentinel_alert_info = sentinel_alert_info
 
     # 新版本发送车辆位置，一次性发送全部车辆，需要补全
     def send_map(self, infos):
-        self.sender.send_all_location(infos)
+        tx_buff = self.sender.generate_all_location_info(infos)
+        self.publish_position(
+            "map",
+            {
+                "positions": infos,
+                "enemy_ids": self.enemy_id,
+                "our_ids": self.my_cars_id,
+            },
+            rate_hz=self.map_hz,
+            tx_buff=tx_buff,
+        )
         self.logger.log(f'Sent map info: {infos}')
 
     # 发送哨兵预警角信息
     def send_sentry_alert_angle(self):
 
-        sentinel_alert_info = []
-        with self.sentinel_lock:
-            sentinel_alert_info = self.sentinel_alert_info
+        sentinel_alert_info = self.sentinel_alert_info
         # print("alert info",sentinel_alert_info)
         if sentinel_alert_info == []:
             return
         carID, distance, quadrant = sentinel_alert_info
-        self.sender.send_sentinel_alert_info(carID, distance, quadrant)
+        tx_buff = self.sender.generate_sentinel_alert_info(carID, distance, quadrant)
+        self.publish_position(
+            "sentinel_alert",
+            {
+                "car_id": carID,
+                "distance": distance,
+                "quadrant": quadrant,
+            },
+            tx_buff=tx_buff,
+        )
         self.logger.log(f'Sent sentinel_alert_info {sentinel_alert_info}')
         # print("send_sentinel_alert_info")
 
@@ -639,7 +668,16 @@ class Messager:
         for info in map_infos:
             car_infos.append([float(info[0]), float(info[1])])
         
-        self.sender.send_sentinel_field_info(car_infos)
+        tx_buff = self.sender.generate_sentinel_field_info(car_infos)
+        self.publish_position(
+            "sentry_perception",
+            {
+                "positions": car_infos,
+                "enemy_ids": self.enemy_id,
+            },
+            rate_hz=self.sentry_hz,
+            tx_buff=tx_buff,
+        )
 
     def send_sentinel_enemy_HP(self, enemy_health_info):
         # 构造哨兵敌方HP数据: 5个 [HP] 格式
@@ -650,22 +688,52 @@ class Messager:
         for hp in enemy_health_info:
             hp_infos.append(int(hp))
         
-        self.sender.send_enemy_HP_info(hp_infos)
+        tx_buff = self.sender.generate_enemy_HP_info(hp_infos)
+        self.publish_position(
+            "enemy_hp",
+            {
+                "hp": hp_infos,
+                "enemy_ids": [self.enemy_id[0], self.enemy_id[1], self.enemy_id[2], self.enemy_id[3], self.enemy_id[5]],
+            },
+            rate_hz=self.enemy_hp_hz,
+            tx_buff=tx_buff,
+        )
 
     # 发送哨兵预警英雄信息
     def send_sentinel_alert_hero(self):
         if self.is_alert_hero:
-            self.sender.send_hero_alert_info(self.is_alert_hero)
+            tx_buff = self.sender.generate_hero_alert_info(self.is_alert_hero)
+            self.publish_position(
+                "hero_alert",
+                {"is_alert": self.is_alert_hero},
+                tx_buff=tx_buff,
+            )
 
     def send_hero_assit(self):
         if self.is_assit_hero:
-            self.sender.send_hero_assit_info(self.send_hero_assit_info, self.is_assit_hero)
+            tx_buff = self.sender.generate_hero_assit_info(self.send_hero_assit_info, self.is_assit_hero)
+            self.publish_position(
+                "hero_assist",
+                {
+                    "is_assist": self.is_assit_hero,
+                    "info": self.send_hero_assit_info,
+                },
+                tx_buff=tx_buff,
+            )
             self.logger.log("Send Hero Assist")
 
     def send_secure_our_hero(self,infos):
         self.alert_our_hero(infos)
         if self.secure_our_hero:
-            self.sender.send_secure_our_hero(self.secure_our_hero, self.enemy_distance)
+            tx_buff = self.sender.generate_alert_hero(self.enemy_distance)
+            self.publish_position(
+                "secure_our_hero",
+                {
+                    "secure": self.secure_our_hero,
+                    "enemy_distance": self.enemy_distance,
+                },
+                tx_buff=tx_buff,
+            )
 
     # 更新flag，将共享内存中更新的信息解析，更新本地flag
     def update_flags(self):
@@ -730,8 +798,20 @@ class Messager:
     def auto_send_double_effect_decision(self, analysis_result):
         # self.sender.send_radar_double_effect_info(self.already_activate_double_effect_times + 1)
         # cv2.imshow("map", map_image)
-        self.sender.send_double_effect_analysis_result_info(2, analysis_result)
-        self.sender.send_double_effect_analysis_result_info(1, analysis_result)
+        self.send_double_effect_analysis_result(2, analysis_result)
+        self.send_double_effect_analysis_result(1, analysis_result)
+
+    def send_double_effect_analysis_result(self, times=1, analysis_result='000000'):
+        tx_buff = self.sender.generate_double_effect_analysis_result_info(times, analysis_result)
+        self.publish_position(
+            "double_effect_decision",
+            {
+                "times": times,
+                "analysis_result": analysis_result,
+            },
+            rate_hz=self.double_effect_hz,
+            tx_buff=tx_buff,
+        )
 
     # 新双倍易伤发送机制
     def send_double_effect_decision(self):
@@ -786,7 +866,7 @@ class Messager:
         if chance:
             self.auto_send_double_effect_decision(jam_key)    
         else:
-            self.sender.send_double_effect_analysis_result_info(0, jam_key)    
+            self.send_double_effect_analysis_result(0, jam_key)    
     
     def is_chance_double_effect(self): # TODO
         flag = False
@@ -809,12 +889,25 @@ class Messager:
     # 根据时间发送自主决策信息
     # 发送双倍易伤信息
     def send_double_effect_times_to_car(self):
-        self.sender.send_double_effect_times_to_car(self.my_sentinel_id, self.have_double_effect_times)
+        first_car_id = self.my_sentinel_id - 3
+        second_car_id = self.my_sentinel_id - 4
+        for car_id in (first_car_id, second_car_id):
+            tx_buff = self.sender.generate_double_effect_times_to_car(car_id, self.have_double_effect_times)
+            self.publish_position(
+                "double_effect_times_to_car",
+                {
+                    "car_id": car_id,
+                    "double_effect_times": self.have_double_effect_times,
+                },
+                tx_buff=tx_buff,
+            )
 
-    # 线程主函数
-    def main_loop(self):
+    def run(self):
         # 问题出在这里，阻塞导致效率很低
+        self.working_flag = True
+        self.logger.log("Messager start")
         self.receiver.start()
+        main_rate = rospy.Rate(max(self.main_loop_hz, 1.0))
         
         # 可视化
         try:
@@ -826,13 +919,8 @@ class Messager:
             map_image = np.ones((480, 640, 3), np.uint8) * 255
             self.status_logger.log(f"image create error {e}")
 
-        while True:
-            # 线程判断，主体代码不能超过这里
-            if not self.working_flag:
-                print("messager stop")
-                break
+        while not rospy.is_shutdown() and self.working_flag:
             # 主体代码在这里以下------------------------------------------------
-            self.last_main_loop_time = Tools.frame_control_sleep(5, self.last_main_loop_time)
             # interferance_level_index = self.shared_interferance_level.value
             # try:
             #     self.sender.send_interferance_level_info(self.interferance_level_list[interferance_level_index-1])
@@ -853,7 +941,7 @@ class Messager:
             # 更新英雄预警
             # show_map_image = copy.deepcopy(map_image)
             # 发送自主决策信息（密钥从 ROS 订阅 /radar/enemy/jam_key 自动获取）
-            is_skip, self.last_send_double_effect_time = Tools.frame_control_skip(25.0, self.last_send_double_effect_time)
+            is_skip, self.last_send_double_effect_time = Tools.frame_control_skip(self.double_effect_hz, self.last_send_double_effect_time)
             if not is_skip:
                 self.send_double_effect_decision()
                 self.logger.log(f"have_double_effect_times: {self.have_double_effect_times} , is_activating_double_effect: {self.is_activating_double_effect} , already_activate_double_effect_times: {self.already_activate_double_effect_times}")
@@ -937,20 +1025,42 @@ class Messager:
 
             # 打印打包好后的信息
             # print("send_map_infos",self.send_map_infos)
-            # 发送 , 采用skip的方式控制发送频率，不用sleep影响主线程的帧率
-            is_skip, self.last_send_map_time = Tools.frame_control_skip(4.8, self.last_send_map_time)
+            # 发送 , 采用skip的方式控制发送频率，不用sleep影响主循环频率
+            is_skip, self.last_send_map_time = Tools.frame_control_skip(self.map_hz, self.last_send_map_time)
             if not is_skip:
                 # p = [14, 7.5]
                 # debug_data = [p,p,p,p,p,p]
                 self.send_map(self.send_map_infos)
                 self.logger.log(f"Sent map infos: {self.send_map_infos}")
 
-            skip_sentry, self.last_send_sentry_time = Tools.frame_control_skip(5.0, self.last_send_sentry_time)
+            skip_sentry, self.last_send_sentry_time = Tools.frame_control_skip(self.sentry_hz, self.last_send_sentry_time)
             if not skip_sentry:
                 self.send_sentry_perception(self.send_map_infos[:6])
                 self.send_sentinel_enemy_HP(self.enemy_health_info)
 
-        if not self.receiver.working_flag:
-            self.receiver.stop()
+            main_rate.sleep()
+
+        print("messager stop")
+        self.receiver.stop()
 
 
+def load_config(config_path):
+    with open(config_path, encoding='Utf-8', mode='r') as config_file:
+        return YAML().load(config_file)
+
+
+def main():
+    cfg = load_config(MAIN_CONFIG_PATH)
+    if not rospy.core.is_initialized():
+        rospy.init_node('radar_messager', anonymous=True, disable_signals=True)
+    messager = Messager(cfg)
+    try:
+        messager.run()
+    finally:
+        messager.working_flag = False
+        if messager.receiver.working_flag:
+            messager.receiver.stop()
+
+
+if __name__ == "__main__":
+    main()

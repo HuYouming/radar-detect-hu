@@ -1,4 +1,0 @@
-1. main中使用多线程的删除
-2. 重写detector，转换到ros
-3. 将log重新修改，保存raw视频和detect视频
-4. 重写sender，将sender转换到ros
