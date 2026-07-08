@@ -39,6 +39,7 @@ done
 
 start_bg roslaunch livox_ros_driver livox_lidar.launch
 start_bg python3 Counter/init_angle_sender.py
+start_bg python3 -m communication.Receiver
 start_bg python3 -m communication.Messager
 start_bg python3 -m detect.Detector
 start_bg python3 26_main.py

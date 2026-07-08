@@ -1,11 +1,9 @@
 from .Sender import Sender
-from .Receiver import Receiver
 from .Topo_map.topo_lidar import *
 from random import randint
 
 import copy
 import json
-import multiprocessing
 import time
 from shapely.geometry import Point, Polygon
 import numpy as np
@@ -38,26 +36,20 @@ class Messager:
         self.is_debug = cfg["global"]["is_debug"]
         messager_cfg = cfg.get('messager', {})
         self.state_topic = messager_cfg.get('state_topic', '/messager/state')
+        communication_cfg = cfg.get('communication', {})
+        self.receiver_state_topic = communication_cfg.get('receiver_state_topic', '/receiver/state')
         self.main_loop_hz = float(messager_cfg['main_loop_hz'])
         self.map_hz = float(messager_cfg['map_hz'])
         self.sentry_hz = float(messager_cfg['sentry_hz'])
         self.enemy_hp_hz = float(messager_cfg['enemy_hp_hz'])
         self.double_effect_hz = float(messager_cfg['double_effect_hz'])
-        # 创建共享内存变量
-        self.shared_is_activating_double_effect = multiprocessing.Value('b', False)  # 共享内存，用于多进程
-        self.shared_my_health_list = multiprocessing.Array('i', [100, 100, 100, 100, 100, 0, 1500, 5000])  # 己方1-4和7号前哨站和基地的血量信息
-        self.shared_enemy_marked_process_list = multiprocessing.Array('i',
-                                                                      [0, 0, 0, 0, 0, 0, 0])  # 标记进度,对应对方1，2，3，4号车、无人机和哨兵
-        self.shared_have_double_effect_times = multiprocessing.Value('i', 0)  # 拥有的双倍易伤次数
-        self.shared_time_left = multiprocessing.Value('i', -1)  # 剩余时间
-        self.shared_dart_target = multiprocessing.Value('i', 0)  # 飞镖目标
-        self.shared_our_buffer_status = multiprocessing.Array('i', [0, 0, 0, 0, 0, 0])  # 己方能量机关状态 TODO
         # ROS 订阅数据缓存
         self._drone_field_xyz = None  # [x, y, z] 赛场坐标系下的无人机坐标
         self._drone_field_timestamp = 0.0
 
-        self.shared_interferance_level = multiprocessing.Value('i', 1)  # 当前干扰等级，默认1级
+        self.interferance_level = 1  # 当前干扰等级，默认1级
         self.interferance_level_list = [1, 2, 3]  # 可用的干扰等级列表
+        self.is_key_update = 0
         self._jam_key = None  # 干扰波密钥
         self._jam_key_timestamp = 0.0
 
@@ -70,12 +62,9 @@ class Messager:
         self.status_logger = RadarLog("Messager_Status")
 
         # 发送部分
-        communication_cfg = cfg.get('communication', {})
         self.position_topic = communication_cfg.get('position_topic', '/messge/position')
-        self.use_ros_position = communication_cfg.get('send_transport', 'ros1') == 'ros1'
+        self.use_ros_position = communication_cfg.get('send_transport', 'serial') == 'ros1'
         sender_cfg = copy.deepcopy(cfg)
-        if self.use_ros_position:
-            sender_cfg['communication']['enabled'] = False
         self.sender = Sender(sender_cfg)
         self.position_pub = None
         self.position_seq = 0
@@ -86,11 +75,6 @@ class Messager:
         # self.super_flag = cfg['others']['is_vs_qd'] # 打青岛大学的特殊flag
         # self.is_vs_hg = cfg['others']['is_vs_hg']
         self.send_double_time_threshold = 240  # 发送双倍易伤的时间阈值，单位秒
-
-        # 接收部分
-        self.receiver = Receiver(cfg, self.shared_is_activating_double_effect, self.shared_my_health_list,
-                                 self.shared_enemy_marked_process_list, self.shared_have_double_effect_times,
-                                 self.shared_time_left, self.shared_our_buffer_status, self.shared_dart_target, self.shared_interferance_level)
 
         # 初始化 ROS 订阅（非阻塞回调方式）
         self._init_ros_subscribers()
@@ -229,18 +213,14 @@ class Messager:
             return True
         return False
 
-    # 根据共享内存变量更新握在手上的决策信息
-    def update_shared_info(self):
-        self.update_shared_is_activating_double_effect_flags()
-        self.update_shared_my_health_info()
-        self.update_shared_mark_progress()
-        self.update_shared_have_double_effect_times()
-        self.update_shared_time_left()
-        self.update_shared_dart_target()
+    # Receiver 状态由 ROS 回调更新，这里保留为空以兼容主循环调用。
+    def update_receiver_info(self):
+        return
 
     # 更新飞镖目标
-    def update_shared_dart_target(self):
-        index = self.shared_dart_target.value
+    def update_receiver_dart_target(self, index=None):
+        if index is None:
+            return
         if not (self.dart_target == index):
             self.dart_target_times[index] += 1
         if self.dart_target_times[index] >= 2:
@@ -248,32 +228,31 @@ class Messager:
             self.dart_target_times = [0, 0, 0]
 
     # 更新己方血量信息
-    def update_shared_my_health_info(self):
-        self.my_health_info = list(self.shared_my_health_list)
+    def update_receiver_my_health_info(self):
+        return
 
     # 更新标记进度
-    def update_shared_mark_progress(self):
-        self.mark_progress = list(self.shared_enemy_marked_process_list)
+    def update_receiver_mark_progress(self):
+        return
 
     # 更新双倍易伤次数
-    def update_shared_have_double_effect_times(self):
-        self.have_double_effect_times = self.shared_have_double_effect_times.value
+    def update_receiver_have_double_effect_times(self):
+        return
 
-    # 更新双倍易伤相关的flag , 用共享内存中转一下 , 如果是下降沿，已发送次数+1
-    def update_shared_is_activating_double_effect_flags(self):
-        if self.is_activating_double_effect == True and self.shared_is_activating_double_effect.value == False:
+    # 更新双倍易伤相关的flag，如果是下降沿，已发送次数+1
+    def update_receiver_is_activating_double_effect_flags(self, is_active=None):
+        if is_active is None:
+            return
+        is_active = bool(is_active)
+        if self.is_activating_double_effect == True and is_active == False:
             self.is_activating_double_effect = False
             self.already_activate_double_effect_times += 1
         else:
-            self.is_activating_double_effect = self.shared_is_activating_double_effect.value
+            self.is_activating_double_effect = is_active
 
     # 更新剩余时间
-    def update_shared_time_left(self):
-        if self.shared_time_left.value != self.time_left:
-            self.time_left = self.shared_time_left.value
-            self.logger.log(f"update time left{self.time_left}")
-        # else:
-        #     print(f"shared time left{self.shared_time_left} and local time left{self.time_left}")
+    def update_receiver_time_left(self):
+        return
 
     # hero_alert的辅助函数，将真实世界坐标转换为图像坐标
     def convert_to_image_coords(self, x, y, img_width, img_height, real_width, real_height):
@@ -475,6 +454,9 @@ class Messager:
             rospy.Subscriber(self.state_topic, String, self._vision_state_callback, queue_size=1)
             self.logger.log(f"[ROS] 已订阅 {self.state_topic}")
 
+            rospy.Subscriber(self.receiver_state_topic, String, self._receiver_state_callback, queue_size=20)
+            self.logger.log(f"[ROS] 已订阅 {self.receiver_state_topic}")
+
             self.position_pub = rospy.Publisher(self.position_topic, String, queue_size=20)
             self.logger.log(f"[ROS] 已发布 {self.position_topic}")
 
@@ -495,6 +477,9 @@ class Messager:
         return value
 
     def publish_position(self, msg_type, payload, rate_hz=None, tx_buff=None):
+        if tx_buff is not None and not self.use_ros_position:
+            self.sender.send_info(tx_buff)
+            return
         if self.position_pub is None:
             return
         msg = {
@@ -547,6 +532,50 @@ class Messager:
         self.update_our_car_infos(payload.get("our_car_infos", []))
         self.update_sentinel_alert_info(payload.get("sentinel_alert_info", []))
 
+    def _receiver_state_callback(self, msg):
+        try:
+            payload = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            self.logger.log(f"[ROS] {self.receiver_state_topic} JSON解析错误: {exc}")
+            return
+
+        state = payload.get("state", {})
+        event_payload = payload.get("payload", {})
+        event_type = payload.get("type", "")
+
+        if "my_health" in state:
+            health = state["my_health"]
+            if isinstance(health, list) and len(health) >= 8:
+                self.my_health_info = [int(v) for v in health[:8]]
+
+        if "mark_progress" in state:
+            mark_progress = state["mark_progress"]
+            if isinstance(mark_progress, list) and len(mark_progress) >= 6:
+                self.mark_progress = [int(v) for v in mark_progress[:6]]
+
+        if "have_double_effect_times" in state:
+            self.have_double_effect_times = int(state["have_double_effect_times"])
+
+        if "is_activating_double_effect" in state:
+            self.update_receiver_is_activating_double_effect_flags(state["is_activating_double_effect"])
+
+        if "time_left" in state:
+            time_left = int(state["time_left"])
+            if time_left != self.time_left:
+                self.time_left = time_left
+                self.logger.log(f"update time left{self.time_left}")
+
+        if event_type == "dart_target" and "dart_target" in event_payload:
+            index = int(event_payload["dart_target"])
+            if 0 <= index < len(self.dart_target_times):
+                self.update_receiver_dart_target(index)
+
+        if "interference_level" in state:
+            self.interferance_level = int(state["interference_level"])
+
+        if "is_key_update" in state:
+            self.is_key_update = int(state["is_key_update"])
+
     def get_drone_field_xyz(self):
         if self.my_color == "Blue":
             default_xyz = [0.5, 14.5, 1]  # 敌方停机坪坐标
@@ -581,7 +610,7 @@ class Messager:
 
     # 更新剩余时间
     def update_time_left(self):
-        self.time_left = self.receiver.get_time_left()
+        return
 
     # 更新敌方车辆信息
     def update_enemy_car_infos(self, enemy_car_infos):
@@ -735,7 +764,7 @@ class Messager:
                 tx_buff=tx_buff,
             )
 
-    # 更新flag，将共享内存中更新的信息解析，更新本地flag
+    # 更新flag，将 ROS 回调更新的信息解析为本地flag
     def update_flags(self):
         # 更新双倍易伤相关flag
         # self.update_double_effect_flags()
@@ -906,7 +935,6 @@ class Messager:
         # 问题出在这里，阻塞导致效率很低
         self.working_flag = True
         self.logger.log("Messager start")
-        self.receiver.start()
         main_rate = rospy.Rate(max(self.main_loop_hz, 1.0))
         
         # 可视化
@@ -921,15 +949,15 @@ class Messager:
 
         while not rospy.is_shutdown() and self.working_flag:
             # 主体代码在这里以下------------------------------------------------
-            # interferance_level_index = self.shared_interferance_level.value
+            # interferance_level_index = self.interferance_level
             # try:
             #     self.sender.send_interferance_level_info(self.interferance_level_list[interferance_level_index-1])
             #     self.logger.log(f"Send interferance level: {self.interferance_level_list[interferance_level_index-1]}")
             # except Exception as e:
             #     self.logger.log(f"Send interferance level error: {e}")
-            # 更新共享内存变量
+            # Receiver 状态由 ROS 回调更新，这里只解析本地 flag。
             try:
-                self.update_shared_info()
+                self.update_receiver_info()
                 # 解析本地flag，更新flag
                 self.update_flags()
             except Exception as e:
@@ -1041,7 +1069,6 @@ class Messager:
             main_rate.sleep()
 
         print("messager stop")
-        self.receiver.stop()
 
 
 def load_config(config_path):
@@ -1058,8 +1085,6 @@ def main():
         messager.run()
     finally:
         messager.working_flag = False
-        if messager.receiver.working_flag:
-            messager.receiver.stop()
 
 
 if __name__ == "__main__":

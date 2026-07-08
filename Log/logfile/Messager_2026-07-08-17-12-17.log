@@ -1,0 +1,7 @@
+[2026-07-08 17:12:17] [ROS] 节点已初始化: /radar_messager_472341_1783501937378
+[2026-07-08 17:12:17] [ROS] 已订阅 /drone_field_xyz
+[2026-07-08 17:12:17] [ROS] 已订阅 /radar/enemy/jam_key
+[2026-07-08 17:12:17] [ROS] 已订阅 /radar/enemy/health_array
+[2026-07-08 17:12:17] [ROS] 已订阅 /messager/state
+[2026-07-08 17:12:17] [ROS] 已订阅 /receiver/state
+[2026-07-08 17:12:17] [ROS] 已发布 /messge/position

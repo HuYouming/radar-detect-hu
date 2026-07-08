@@ -1,0 +1,26 @@
+[2026-07-08 16:43:29] [ROS] 节点已初始化: /radar_messager_431528_1783500209521
+[2026-07-08 16:43:29] [ROS] 已订阅 /drone_field_xyz
+[2026-07-08 16:43:29] [ROS] 已订阅 /radar/enemy/jam_key
+[2026-07-08 16:43:29] [ROS] 已订阅 /radar/enemy/health_array
+[2026-07-08 16:43:29] [ROS] 已订阅 /messager/state
+[2026-07-08 16:43:29] [ROS] 已订阅 /receiver/state
+[2026-07-08 16:43:29] [ROS] 已发布 /messge/position
+[2026-07-08 16:43:29] Messager start
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] have_double_effect_times: 0 , is_activating_double_effect: False , already_activate_double_effect_times: 0
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] have_double_effect_times: 0 , is_activating_double_effect: False , already_activate_double_effect_times: 0
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] have_double_effect_times: 0 , is_activating_double_effect: False , already_activate_double_effect_times: 0
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]
+[2026-07-08 16:43:29] Marked situation: [0, 0, 0, 0, 0, 0]

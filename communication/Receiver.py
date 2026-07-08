@@ -1,44 +1,29 @@
-import multiprocessing
-import sys
-
-from typing import Optional, Dict
+import json
 import serial
 import struct
 import time
-import threading
-from multiprocessing import Value,Process
+import rospy
+from std_msgs.msg import String
+from ruamel.yaml import YAML
 from Tools.Tools import Tools
-# from ruamel.yaml import YAML
 from Log.Log import RadarLog
+
+MAIN_CONFIG_PATH = "./configs/main_config.yaml"
 
 
 class Receiver:
-    def __init__(self,cfg ,shared_is_activating_double_effect , shared_my_health_list , shared_enemy_marked_process_list , shared_have_double_effect_times , shared_time_left , shared_dart_target, shared_interferance_level=1, shared_is_key_update=0):
+    def __init__(self, cfg):
 
         # log
         self.logger = RadarLog("receiver")
         self.buffer_logger = RadarLog("buffer")
-        # 共享内存变量
-        try:
-            self.shared_is_activating_double_effect = shared_is_activating_double_effect
-            self.shared_my_health_list = shared_my_health_list
-            self.shared_enemy_marked_process_list = shared_enemy_marked_process_list
-            self.shared_have_double_effect_times = shared_have_double_effect_times
-            self.shared_time_left = shared_time_left
-            self.shared_dart_target = shared_dart_target
-            self.shared_interferance_level = shared_interferance_level
-            self.shared_is_key_update = shared_is_key_update
-
-            # 全局变量
-            self.my_color = cfg['global']['my_color']
-
-        except Exception as e:
-            self.logger.log(f"shared init fail {e}")
+        self.my_color = cfg['global']['my_color']
 
 
         # 串口配置
         self.enabled = cfg.get('communication', {}).get('enabled', True)
         self.port = cfg['communication'].get('port', '/dev/ttyUSB0')
+        self.state_topic = cfg['communication'].get('receiver_state_topic', '/receiver/state')
         self.send_double_flag = 0 # 初始是0
         self.send_double_count_1 = 0 # 防止单次错误信息，计数
         self.send_double_count_2 = 0  # 防止单次错误信息，计数
@@ -50,6 +35,18 @@ class Receiver:
         else:
             print('通信串口已禁用，Receiver 不打开串口')
         self.fps = 100 # 控制主线程帧率为100Hz
+        self.state_pub = None
+        self.state_seq = 0
+        self.receiver_state = {
+            "is_activating_double_effect": False,
+            "my_health": [100, 100, 100, 100, 100, 0, 1500, 5000],
+            "mark_progress": [0, 0, 0, 0, 0, 0],
+            "have_double_effect_times": 0,
+            "time_left": -1,
+            "dart_target": 0,
+            "interference_level": 1,
+            "is_key_update": 0,
+        }
         # CRC表
         self.CRC8_TABLE = [
             0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83, 0xc2, 0x9c, 0x7e, 0x20, 0xa3, 0xfd, 0x1f, 0x41,
@@ -109,39 +106,62 @@ class Receiver:
         self.udp_enabled = False
         # 数据存储
         self.time_left = -1 # 剩余时间
-        # 共享内存变量
-        self.already_send_double_effect = Value('i', 0) # 是否已经发送了双倍概率
+        self.already_send_double_effect = 0 # 是否已经发送了双倍概率
         self.dart_target = 0 #飞镖目标
 
-        # 线程
-        # self.threading = threading.Thread(target=self.parse_cmd_id, daemon=True)
         self.working_flag = False
         self.last_time_main_loop = time.time() # 保持一秒一帧
 
-        # 接收进程
-        self.process = Process(target=self.parse_cmd_id_batch, daemon=True) if self.enabled else None
+    def _init_ros_publisher(self):
+        try:
+            try:
+                rospy.get_name()
+            except rospy.exceptions.ROSInitException:
+                rospy.init_node('radar_receiver', anonymous=True, disable_signals=True)
+            self.state_pub = rospy.Publisher(self.state_topic, String, queue_size=20, latch=True)
+            self.logger.log(f"[ROS] Receiver state publisher ready: {self.state_topic}")
+        except Exception as e:
+            self.logger.log(f"[ROS] Receiver publisher init failed: {e}")
 
-    # 线程创建
-    # 线程开启
+    def publish_state(self, event_type, payload=None):
+        if self.state_pub is None:
+            return
+        msg = {
+            "seq": self.state_seq,
+            "stamp": rospy.Time.now().to_sec() if rospy.core.is_initialized() else time.time(),
+            "type": event_type,
+            "state": self.receiver_state,
+        }
+        if payload is not None:
+            msg["payload"] = payload
+        self.state_pub.publish(String(data=json.dumps(msg, separators=(',', ':'))))
+        self.state_seq += 1
+
     def start(self):
-        if not self.enabled or self.process is None:
+        if not self.enabled:
             self.working_flag = False
             return
         self.working_flag = True
-        self.process.start()
-    # 线程关闭
+
     def stop(self):
         if self.working_flag:
             self.working_flag = False
             self.logger.log("receiver stop")
-            if self.process is not None:
-                self.process.terminate()  # Forcefully terminate the process
-            # self.process.join()q
             if self.ser is not None:
                 self.ser.close()
             self.logger.log(f"working status {self.working_flag}")
 
-        # self.threading.join()
+    def run(self):
+        if not self.enabled:
+            self.logger.log("receiver disabled")
+            return
+        self._init_ros_publisher()
+        self.start()
+        self.publish_state("initial")
+        try:
+            self.parse_cmd_id_batch()
+        finally:
+            self.stop()
 
     def get_crc16_check_byte(self, data):
         crc = 0xffff
@@ -176,7 +196,7 @@ class Receiver:
     def find_sof(self):
         # 读取单个字节直至找到SOF
         find_time = 0
-        while True:
+        while not rospy.is_shutdown():
             if not self.working_flag:
                 return
             # 0.01s如果没有接收就返回空
@@ -259,7 +279,7 @@ class Receiver:
     # 解析usb转串口由单片机整理发上来的数据
     def parse_receiver_data(self):
 
-        while True:
+        while not rospy.is_shutdown():
             # 控制帧率为10fps
 
             if not self.working_flag:
@@ -302,7 +322,7 @@ class Receiver:
     def parse_cmd_id_batch(self):
         buffer = b''  # 初始化缓冲区
 
-        while True:
+        while not rospy.is_shutdown():
             if not self.working_flag:
                 self.logger.log("receiver process exit")
                 return
@@ -314,7 +334,7 @@ class Receiver:
                 self.log_buffer_content(buffer)
             except Exception as e:
                 self.logger.log(f"buffer save Error: {e}")
-            while True:
+            while not rospy.is_shutdown():
                 if not self.working_flag:
                     self.logger.log("receiver process exit")
                     return
@@ -382,7 +402,7 @@ class Receiver:
     # 解析帧头和cmd_id , 所有的东西都需要保留下来，因为要用来计算crc16
     def parse_cmd_id(self):
 
-        while True:
+        while not rospy.is_shutdown():
             # 控制帧率为10fps
 
 
@@ -499,7 +519,8 @@ bit 9-15：保留
         self.logger.log(f"Dart target: {dart_target}")
         # hit_target = data[1] & 0x06
         # print(struct.unpack('H',data[1]))
-        self.shared_dart_target.value = dart_target
+        self.receiver_state["dart_target"] = int(dart_target)
+        self.publish_state("dart_target", {"dart_target": int(dart_target)})
         # print(f"Hit target: {hit_target}")
         # 如果目标为1，则认为第一次想发送双倍易伤，如果为2，则认为第二次想发送双倍易伤
 
@@ -527,24 +548,25 @@ bit 9-15：保留
         time_left = struct.unpack('<H', data[1:3])[0]
         
         if game_stage == 4:
-            self.shared_time_left.value = time_left
+            self.receiver_state["time_left"] = int(time_left)
             self.logger.log(f"Stage: {game_stage}, Time left: {time_left}")
+            self.publish_state("game_status", {"game_stage": int(game_stage), "time_left": int(time_left)})
 
     # 获取比赛剩余时间
     def get_time_left(self):
-        return self.shared_time_left.value
+        return self.receiver_state["time_left"]
 
     # 血量信息
     def parse_robot_status(self, data):
         # 8 个 uint16_t：英雄、工程、步兵3、步兵4、保留、哨兵、前哨站、基地
         hp_list = struct.unpack('<8H', data[:16])
         
-        # 写入共享内存（8 个元素）
-        for i in range(8):
-            self.shared_my_health_list[i] = hp_list[i]
+        hp_values = [int(v) for v in hp_list]
+        self.receiver_state["my_health"] = hp_values
         
         self.logger.log(f"Robot HP: {hp_list}")
-        return list(hp_list)
+        self.publish_state("robot_status", {"my_health": hp_values})
+        return hp_values
 
     # 标记进度
     def parse_mark_process(self,data):
@@ -557,10 +579,10 @@ bit 9-15：保留
         # 对方 6 个单位：bit 0~5，存 0 或 1
         mark_process = [(mark_bits >> i) & 0x01 for i in range(6)]
 
-        for i in range(6):
-            self.shared_enemy_marked_process_list[i] = mark_process[i]
+        self.receiver_state["mark_progress"] = mark_process
 
         self.logger.log(f"Mark process: {mark_process} (raw bits: {mark_bits:016b})")
+        self.publish_state("mark_process", {"mark_progress": mark_process})
         return mark_process
 
 
@@ -580,11 +602,17 @@ bit 9-15：保留
         # 提取位 2 作为双倍易伤激活状态
         is_double_effect_active = (radar_info >> 2) & 0x01
 
-        # 更新共享内存或类变量
-        self.shared_is_activating_double_effect.value = is_double_effect_active
-        self.shared_have_double_effect_times.value = double_effect_chance
+        self.receiver_state["is_activating_double_effect"] = bool(is_double_effect_active)
+        self.receiver_state["have_double_effect_times"] = int(double_effect_chance)
 
         self.logger.log(f"Double effect chance: {double_effect_chance}, is double effect active: {is_double_effect_active}")
+        self.publish_state(
+            "double_effect",
+            {
+                "have_double_effect_times": int(double_effect_chance),
+                "is_activating_double_effect": bool(is_double_effect_active),
+            },
+        )
 
         return double_effect_chance, is_double_effect_active
 
@@ -598,10 +626,17 @@ bit 9-15：保留
         interference_level = (radar_info >> 3) & 0x03
         # 提取位 5 作为是否更新密钥的标志
         is_key_update = (radar_info >> 5) & 0x01
-        self.shared_interferance_level.value = interference_level
-        self.shared_is_key_update.value = is_key_update
+        self.receiver_state["interference_level"] = int(interference_level)
+        self.receiver_state["is_key_update"] = int(is_key_update)
 
         self.logger.log(f"Interference level: {interference_level}, is key updated: {is_key_update}")
+        self.publish_state(
+            "interference_status",
+            {
+                "interference_level": int(interference_level),
+                "is_key_update": int(is_key_update),
+            },
+        )
 
         return interference_level, is_key_update
 
@@ -684,28 +719,18 @@ def parse_frame(self,serial_port):
     return True
 
 
-# 打开串口
-
-# receiver = Receiver()
-# # 读取串口数据
-# while True:
-#     receiver.read_remaining_time()
-#     # time.sleep(0.1)
-
-# 测试
-
-# main_config_path = "../configs/main_config.yaml"
-# main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
-# receiver = Receiver(main_cfg)
-# receiver.start()
-# while True:
-#     # print('1')
-#     print(receiver.get_time_left())
-#     time.sleep(0.1)
+def load_config(config_path):
+    with open(config_path, encoding='Utf-8', mode='r') as config_file:
+        return YAML().load(config_file)
 
 
+def main():
+    cfg = load_config(MAIN_CONFIG_PATH)
+    if not rospy.core.is_initialized():
+        rospy.init_node('radar_receiver', anonymous=True, disable_signals=True)
+    receiver = Receiver(cfg)
+    receiver.run()
 
 
-
-
-
+if __name__ == "__main__":
+    main()

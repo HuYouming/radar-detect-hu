@@ -1,5 +1,5 @@
 global:
-  my_color: "Blue" # "Blue"
+  my_color: "red" # "Blue"
   is_debug: True # False
 
 
@@ -40,8 +40,9 @@ lidar:
 
 communication:
   enabled: true # 调试时没有下位机串口可改为 false
-  send_transport: 'ros1' # 'ros1' 时 Messager 不走串口发送，改发 ROS topic
+  send_transport: 'serial' # Messager 发送端保持串口；Receiver->Messager 状态同步使用 ROS
   position_topic: '/messge/position'
+  receiver_state_topic: '/receiver/state'
   port: '/dev/ttyUSB0' # 串口
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间
