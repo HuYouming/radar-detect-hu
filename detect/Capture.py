@@ -4,18 +4,14 @@
 '''
 import cv2
 import sys
-sys.path.append('E:/Radar/Hust-Radar-2024-main')
 from ruamel.yaml import YAML
-from ultralytics import YOLO
 import sys
 from ctypes import *
 import numpy as np
 from stereo_camera.MvImport import MvCameraControl_class as hk
-import math
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from collections import deque
 
 # 加载配置文件
 # main_cfg_path = "../configs/main_config.yaml"
@@ -25,7 +21,7 @@ from collections import deque
 
 # Capture类的封装
 class Capture:
-    def __init__(self, binocular_camera_cfg_path = "/home/radar/Radar/code/Hust_Radar_2026/configs/bin_cam_config.yaml", camera_name = 'new_cam'):
+    def __init__(self, binocular_camera_cfg_path, camera_name = 'new_cam'):
         cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
         self.camera_name = camera_name
@@ -298,54 +294,6 @@ class Capture:
     def __del__(self):
         self.release()
         # cv2.destroyAllWindows()
-
-class ImageProcessor_test:
-    def __init__(self, binocular_camera_cfg_path = "/home/radar/Radar/code/Hust_Radar_2026/configs/bin_cam_config.yaml",camera_name = 'new_cam'):
-        cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
-        self.camera_name = camera_name
-        self.camera_id = cfg['id'][self.camera_name]
-        self.cfg = cfg
-        self.width = cfg['param']['Width']
-        self.height = cfg['param']['Height']
-        # 初始化ROS节点
-        rospy.init_node('image_processor_node', anonymous=True)
-
-        # 创建 CvBridge 对象，用于 ROS 图像与 OpenCV 图像之间的转换
-        self.bridge = CvBridge()
-
-        # 订阅图像话题，这里假设图像话题为 "/camera/image"
-        self.image_sub = rospy.Subscriber("/camera/image", Image, self.image_callback)
-        self.image = None
-
-    def image_callback(self, msg):
-        try:
-            # 将 ROS 图像消息转换为 OpenCV 图像
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-
-            # 图像处理：将图像转为灰度
-            gray_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-
-            self.image = gray_image
-            # 显示处理后的图像
-            # cv2.imshow("Processed Image", gray_image)
-            # cv2.waitKey(1)  # 等待键盘事件，更新显示
-
-        except CvBridgeError as e:
-            rospy.logerr("CvBridge Error: {0}".format(e))
-
-    def get_frame(self):
-        return self.image
-
-    def run(self):
-        # 保持节点运行
-        rospy.spin()
-
-if __name__ == '__main__':
-    try:
-        image_processor = ImageProcessor_test()
-        image_processor.run()
-    except rospy.ROSInterruptException:
-        pass
 
 # if __name__ == '__main__':
 #     import time

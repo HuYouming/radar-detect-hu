@@ -89,16 +89,9 @@ class Converter:
         self.point_3= [17.77462, -11.94595, 0.8]
         self.point_4 = [20.35278, -2.168, 0.30176]
 
-
-
-
-
-        self.yaml_path = 'points.yaml'
         self.global_color = my_color
         with open(data_loader_path, 'r',encoding='utf-8', errors='ignore') as file:
             data_loader = yaml.safe_load(file)
-        # 2024
-        self.real_points = [self_R0TL, self_R0TR, self_Tower, enemy_Base, enemy_Tower]
         # 2025
         self.real_points_25 = [enemy_Base_25, enemy_Tower_25, self_FORTRESS, self_Tower_25, enemy_FORTRESS_RIGHT_BACK]
         #test

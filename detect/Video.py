@@ -38,14 +38,9 @@ class Video:
                 break
 
     def save(self, frame , output_path):
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, self.fps, (self.width, self.height))
         out.write(frame)
-
-
-
-
-
 
     def __del__(self):
         if self.cap is not None:

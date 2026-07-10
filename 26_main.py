@@ -136,7 +136,7 @@ def to_builtin(value):
     return value
 
 
-def add_text(draw_payload, text, point, scale=1.5, color=(0, 255, 122), thickness=2):
+def add_text(draw_payload, text, point, scale=1.0, color=(0, 255, 122), thickness=1):
     draw_payload["texts"].append({
         "text": text,
         "point": [int(point[0]), int(point[1])],
