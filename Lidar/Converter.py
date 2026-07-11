@@ -104,9 +104,22 @@ class Converter:
                 true_points = np.array(self.real_points_25, dtype=np.float32)
                 pixel_points = np.array(anchor.vertexes, dtype=np.float32)
                 print(pixel_points)
-                _, rotation_vector, translation_vector = cv2.solvePnP(true_points, pixel_points,
-                                                                      self.intrinsic_matrix,
-                                                                      self.distortion_matrix, flags=cv2.SOLVEPNP_EPNP)
+                ok, rotation_vector, translation_vector = cv2.solvePnP(true_points, pixel_points,
+                                                                       self.intrinsic_matrix,
+                                                                       self.distortion_matrix, flags=cv2.SOLVEPNP_EPNP)
+                if not ok:
+                    print("solvePnP EPNP failed")
+                    continue
+                ok, rotation_vector, translation_vector = cv2.solvePnP(true_points, pixel_points,
+                                                                       self.intrinsic_matrix,
+                                                                       self.distortion_matrix,
+                                                                       rotation_vector,
+                                                                       translation_vector,
+                                                                       useExtrinsicGuess=True,
+                                                                       flags=cv2.SOLVEPNP_ITERATIVE)
+                if not ok:
+                    print("solvePnP ITERATIVE refine failed")
+                    continue
                 rotation_matrix = cv2.Rodrigues(rotation_vector)[0]  # 从赛场到相机的旋转矩阵
                 self.field_to_camera_R = rotation_matrix
                 self.field_to_camera_T = translation_vector
