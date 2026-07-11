@@ -9,24 +9,13 @@ import sys
 from ctypes import *
 import numpy as np
 from stereo_camera.MvImport import MvCameraControl_class as hk
-import rospy
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
+from Log.Log import RadarLog
 
-# 加载配置文件
-# main_cfg_path = "../configs/main_config.yaml"
-# binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
-# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
-# bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
-
-# Capture类的封装
 class Capture:
     def __init__(self, binocular_camera_cfg_path, camera_name = 'new_cam'):
         cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
         self.camera_name = camera_name
-        self.camera_id = cfg['id'][self.camera_name]
-        self.cfg = cfg
         self.width = cfg['param']['Width']
         self.height = cfg['param']['Height']
 
@@ -38,22 +27,16 @@ class Capture:
         self.show_height = cfg['param']['show_height']
         self.pyr_times = cfg['param']['pyr_times']
 
+        self.logger = RadarLog("Capture")
 
     # 展示图像
     def show_img(self,img):
         cv2.imshow(self.camera_name, cv2.resize(img, (self.show_width, self.show_height)))
         cv2.waitKey(1)
 
-    # 用图像金字塔展示图像
-    def show_img_pyramid(self,img):
-        # 复制一份图�?
-        pyr_img = img.copy()
-        for i in range(self.pyr_times):
-            pyr_img = cv2.pyrDown(pyr_img)
-        cv2.imshow(self.camera_name, pyr_img)
-        cv2.waitKey(1)
     # 获取图像
     def get_frame(self):
+        self.logger.log(f"get_frame called for {self.camera_name}")
         frame = hk.MV_FRAME_OUT()
         memset(byref(frame), 0, sizeof(frame))
         self.ret.contents = False
@@ -64,10 +47,6 @@ class Capture:
 
         if _ret == hk.MV_OK:
             self.ret.contents = True
-
-            # print("[%s] get one frame: Width[%d], Height[%d], nFrameNum[%d], timestamp(high)[%d], timestamp(low)[%d]"
-            #       % (self.camera_name, int(frame_info.nWidth), int(frame_info.nHeight),
-            #          int(frame_info.nFrameNum), int(frame_info.nDevTimeStampHigh), int(frame_info.nDevTimeStampLow)))
 
             b1 = hk.MVCC_FLOATVALUE()
 
@@ -106,15 +85,16 @@ class Capture:
         cam = self.camera_init(cfg)
 
         print(f"{self.camera_name} camera connected")
-        # print(cam.MV_CC_IsDeviceConnected()) # 没有这个
 
         # 设置参数
         self.set_parameters(cam, cfg)
 
-        # 开始取�?
+        # 开始读取
         ret = cam.MV_CC_StartGrabbing()
+        self.logger.log(f"camera {self.camera_name} start grabbing, ret[0x{ret:x}]")
         if ret != 0:
-            print("right 开始取流失�?! ret[0x%x]" % ret)
+            print("读取失败 ret[0x%x]" % ret)
+            self.logger.log(f"camera {self.camera_name} start grabbing failed, ret[0x{ret:x}]")
             sys.exit()
 
         ret_q = POINTER(c_bool)
@@ -169,11 +149,7 @@ class Capture:
             print("create handle fail! ret[0x%x]" % _ret)
             sys.exit()
 
-        # Open device (does not read input stream at this point)
         cam.MV_CC_OpenDevice(hk.MV_ACCESS_Exclusive, 0)
-
-        # Clear any existing buffer (may exist)
-        # cam.MV_CC_ClearImageBuffer() # 删除
 
         return cam
     
@@ -290,155 +266,6 @@ class Capture:
 
             self.camera = None
 
-    # del
+
     def __del__(self):
         self.release()
-        # cv2.destroyAllWindows()
-
-# if __name__ == '__main__':
-#     import time
-#     capture = Capture()
-#     last_time = time.time()
-#     while True:
-#
-#         image = capture.get_frame()
-#         capture.show_img(image)
-#         fps = 1 / (time.time() - last_time)
-#         last_time = time.time()
-#         print(f"fps: {fps}")
-#         if cv2.waitKey(1) == ord('q'):
-#             break
-#
-#     capture.release()
-
-
-
-# # 检测模�?
-# print('Loading Car Model')
-# model_car = YOLO("../weights/train/stage_one/weights/best.pt")
-# model_car2 = YOLO("../weights/train/stage_two/weights/best.pt")
-# print('Done\n')
-#
-# id_label = {}
-# for i in range(1000):
-#     id_label[i] = [0] * 12
-#
-# labels = ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
-#
-
-# Classify function
-# def classify(frame, box):
-#     x, y, w, h = box
-#     x_left = x - w / 2
-#     y_left = y - h / 2
-#
-#     roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
-#
-#     results = model_car2.predict(roi, conf=0.5, iou=0.7)
-#     maxConf = -1
-#     label = -1
-#     if len(results) == 0:  # no detect
-#         return -1
-#     for result in results:
-#         data = result.boxes.data
-#         for i in range(len(data)):
-#             if data[i][4] > maxConf:
-#                 maxConf = data[i][4]
-#                 label = data[i][5]
-#
-#     return int(label)
-#
-#
-# def main():
-#     print("\nLoading right camera")
-#     # capture初始�?
-#     capture = Capture(binocular_camera_cfg_path, 'new_cam')
-#
-#
-#     # print(ret.contents)
-#     print("Done")
-#
-#     loop_times = 0
-#
-#     while True:
-#         image_right = capture.get_frame()
-#
-#         # 如果按下q，那么停止循�?
-#         if cv2.waitKey(1) == ord('q'):
-#             break
-#
-#         if image_right is not None:
-#
-#             results = model_car.track(image_right, persist=True,tracker='../configs/bytetrack.yaml')
-#
-#             if results is None:
-#                 # 就算没有检测到，也要显示右摄像头的画面
-#                 print("No results!")
-#                 capture.show_img(image_right)
-#                 #cv2.waitKey(1)
-#                 continue
-#
-#             if results[0].boxes.id is None:
-#                 # 就算没有检测到，也要显示右摄像头的画面
-#                 print("No detect!")
-#                 capture.show_img(image_right)
-#                 #cv2.waitKey(1)
-#                 continue
-#
-#             confidences = results[0].boxes.conf.cpu().numpy()
-#             boxes = results[0].boxes.xywh.cpu().numpy()
-#             track_ids = results[0].boxes.id.int().cpu().tolist()
-#
-#             for box, track_id, conf in zip(boxes, track_ids, confidences):
-#                 if conf < 0.01:
-#                     capture.show_img(image_right)
-#                     #cv2.waitKey(1)
-#                     continue
-#                 new_id = classify(image_right, box)
-#
-#                 if new_id != -1:
-#                     id_label[int(track_id)][int(float(new_id))] += 1
-#                     if loop_times % 29 == 0:
-#                         for i in range(12):
-#                             id_label[int(track_id)][i] = math.floor(id_label[int(track_id)][i] / 10)
-#
-#                 result = id_label[int(track_id)].index(max(id_label[int(track_id)]))
-#                 pd = id_label[int(track_id)][0]
-#                 same = True
-#                 for i in range(11):
-#                     if pd != id_label[int(track_id)][i + 1]:
-#                         same = False
-#                         break
-#                 if same == True:
-#                     result = "NULL"
-#                 else:
-#                     result = str(labels[result])
-#
-#
-#
-#                 # 如果result不是null, 画上分类结果
-#                 if result != "NULL":
-#                     # 画上分类结果
-#                     x, y, w, h = box
-#                     cv2.putText(image_right, result, (int(box[0] - 5), int(box[1] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-#                                 (0, 255, 122), 2)
-#                     # 画上置信�? debug
-#                     cv2.putText(image_right, str(round(conf, 2)), (int(box[0] - 5), int(box[1] - 25)),cv2.FONT_HERSHEY_SIMPLEX,0.75, (0, 255, 122), 2)
-#                     cv2.rectangle(image_right, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)),
-#                                   (0, 255, 122), 2)
-#
-#             print("show!")
-#             capture.show_img(image_right)
-#             #cv2.waitKey(1)
-#
-#
-#         # 确定我们有一幅生效的图片
-#         loop_times += 1
-#
-#     # 关闭摄像�?
-#     capture.camera_close()
-#
-#     # 关闭所�? OpenCV 窗口
-#     cv2.destroyAllWindows()
-#
-#

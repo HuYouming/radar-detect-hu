@@ -4,21 +4,16 @@ import datetime
 import json
 from ruamel.yaml import YAML
 from ultralytics import YOLO
-# from Capture import Capture
 import math
 import time
 import numpy as np
-# import cupy as cp
 import os
 from collections import OrderedDict
-try:
-    import rospy
-    from std_msgs.msg import String
-except ImportError:
-    rospy = None
-    String = None
+import rospy
+from std_msgs.msg import String
+
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
-VIDEO_PATH = "/root/rm/radar-detect/data/test_video_trimmed.mp4"
+VIDEO_PATH = "/root/rm/radar-detect/data/141525.mp4"
 DETECTOR_CONFIG_PATH = "./configs/detector_config.yaml"
 CAMERA_CONFIG_PATH = "./configs/bin_cam_config.yaml"
 CAMERA_NAME = "new_cam"

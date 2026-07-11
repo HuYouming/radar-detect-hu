@@ -4,7 +4,7 @@ import time
 class RadarLog:
     def __init__(self, logger_name):
         self.logger_name = logger_name
-        self.timestamp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+        self.timestamp = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
         self.log_dir = '/root/rm/radar-detect/Log/logfile'
         self.log_path = f'{self.log_dir}/{self.logger_name}_{self.timestamp}.log'
         # 确保log目录存在

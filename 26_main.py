@@ -1,6 +1,5 @@
 from detect.Video import Video
 from detect.Capture import Capture
-# from Lidar.Lidar import Lidar
 from Lidar.Converter import Converter 
 from Log.Log import RadarLog
 from Car.Car import *
@@ -165,7 +164,7 @@ def add_line(draw_payload, p1, p2, color=(0, 255, 122), thickness=2):
 
 
 if __name__ == '__main__':
-    video_path = "/root/rm/radar-detect/data/test_video_trimmed.mp4"  # 请改为/path/to/video.avi
+    video_path = "/root/rm/radar-detect/data/141525.mp4"  # 请改为/path/to/video.avi
     detector_config_path = "./configs/detector_config.yaml"
     binocular_camera_cfg_path = "./configs/bin_cam_config.yaml"
     main_config_path = "./configs/main_config.yaml"
@@ -188,28 +187,15 @@ if __name__ == '__main__':
     global_my_color = main_cfg['global']['my_color']
     is_debug = main_cfg['global']['is_debug']
 
-    # 设置保存路径
-    save_video_folder_path = "/root/rm/radar-detect/video"  # 保存视频的文件夹
-    today = time.strftime("%Y%m%d", time.localtime()) # 今日日期，例如2024年5月6日则为20240506
-    today_video_folder_path = save_video_folder_path + today + "/" # 今日的视频文件夹
-    if not os.path.exists(today_video_folder_path): # 当天的视频文件夹不存在则创建
-        os.makedirs(today_video_folder_path)
-    video_name = time.strftime("%H%M%S", time.localtime()) # 视频名称，以时分秒命名，19：29：30则为192930
-    video_save_path = today_video_folder_path + video_name + ".mp4" # 视频保存路径
-
     logger = RadarLog("main")
-
-    if save_video:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
-        out = cv2.VideoWriter(video_save_path, fourcc, 30, (1920, 1080))  # 文件名，编码器，帧率，帧大小
-    else:
-        out = None
 
     # 类初始化
     vision_buffer = VisionRosBuffer(detect_topic, result_topic)
+    logger.log("vision_buffer init")
     messager_state_pub = MessagerStatePublisher(messager_state_topic)
-    # lidar = Lidar(main_cfg)
+    logger.log("messager_state_pub init")
     converter = Converter(global_my_color,converter_config_path)  # 传入的是path
+    logger.log("converter init")
     carList = CarList(main_cfg)
     logger.log("carList init")
 
@@ -229,9 +215,6 @@ if __name__ == '__main__':
     ready_pub.publish(String(data="ready"))
     logger.log(f"main ready published: {ready_topic}")
 
-    # ROI初始化
-    # roi_selector = ROISelector(capture)
-
     start_time = time.time()
     # fps计算
     N = 10
@@ -245,10 +228,9 @@ if __name__ == '__main__':
     counter = 0
 
     # 可视化小地图绘制queue
-
-
     main_rate = rospy.Rate(max(detector_process_hz, 1.0))
     print("enter main loop")
+    logger.log('satrt main loop')
     try:
         while not rospy.is_shutdown():
             # 计算fps
@@ -280,10 +262,8 @@ if __name__ == '__main__':
             carList_results = []
             debug_results = []  # 用于小地图可视化
 
-
             # 确保推理结果不为空且可以解包
             if infer_result is not None:
-                # print(infer_result)
                 _, results = infer_result
 
                 if results is not None:
@@ -291,22 +271,14 @@ if __name__ == '__main__':
                     # 对每个结果进行分析 , 进行目标定位
                     for result in results:
 
-                    # 对每个检测框进行处理，获取对应点云
                     # 结果：[xyxy_box, xywh_box , track_id , label ]
                         xyxy_box, xywh_box ,  track_id , label, stamp = result # xywh的xy是中心点的xy
 
                     # 如果没有分类出是什么车直接跳过
                         if label == "NULL":
                             continue
-                    # if global_my_color == "Red" and carList.get_car_id(label) < 100 and carList.get_car_id(label) != 7 and carList.get_car_id(label)!=1:
-                    #     continue
-                    # if global_my_color == "Blue" and carList.get_car_id(label) > 100 and carList.get_car_id(label) != 107 and carList.get_car_id(label)!=101:
-                    #     continue
 
                     # 获取新xyxy_box , 原来是左上角和右下角，现在想要中心点保持不变，宽高设为原来的一半，再计算一个新的xyxy_box,可封装
-                        div_times = 1.01
-                        new_w = xywh_box[2] / div_times
-                        new_h = xywh_box[3] / div_times
                         new_xywh_box = get_new_box(xyxy_box, xywh_box)
                         center = converter.detection_main(new_xywh_box,t=stamp)
                         center = converter.vision_locator.post_process(center, global_my_color)
@@ -431,7 +403,3 @@ if __name__ == '__main__':
         print("finally")
 
         cv2.destroyAllWindows()
-        if save_video:
-            if out is not None:
-                out.release()
-        # lidar.stop()

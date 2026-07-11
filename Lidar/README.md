@@ -50,8 +50,11 @@
 ```python
 converter = Converter(my_color, data_loader_path='parameters.yaml')
 ```
-- `__init__`: 加载配置文件，初始化内外参矩阵。
-- （内部包含 `lidar2camera`, `camera2lidar` 等转换方法逻辑）
+- `__init__`: 加载配置文件，初始化相机内参、外参和畸变参数。
+- `camera_to_field_init(capture)`: 交互选点并初始化相机到赛场的定位矩阵。
+- `detection_main(box, t)`: 根据检测框解算赛场坐标。
+- `camera_to_image(pc)`: 将相机坐标系点反投影到图像坐标。
+- `angle_to_quadrant(angle)`: 将角度映射为哨兵预警象限。
 
 ### FastSearch 类
 ```python

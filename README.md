@@ -154,9 +154,9 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
 #### `Lidar/Converter.py`
 **核心坐标变换类，连接视觉检测与赛场坐标系。**
 
-- 构造时读取 `configs/converter_config.yaml`，加载相机内参（fx/fy/cx/cy）、外参（R/T）、畸变系数，初始化 `Vision_Locator` 和 `FastSearch`。
+- 构造时读取 `configs/converter_config.yaml`，加载相机内参（fx/fy/cx/cy）、外参（R/T）、畸变系数，初始化 `Vision_Locator`。
 - `camera_to_field_init(capture)`：弹出交互式选点 UI（调用 `camera_locator/point_picker.py`），让操作员在当前帧上点选已知赛场地标，计算透视变换矩阵存入 `Vision_Locator`。
-- `detection_main(box, t, point_cloud=None) → [x, y, z]`：26 年赛季**不传 point_cloud**，直接走 `camera_results()` → `Vision_Locator.parser()` 纯视觉定位路径。
+- `detection_main(box, t) → [x, y, z]`：走 `camera_results()` → `Vision_Locator.parser()` 纯视觉定位路径。
 - `camera_to_image(pc)`：将相机坐标系 XYZ 反投影到图像像素，用于 debug 可视化。
 - `angle_to_quadrant(angle)`：将方位角转为象限编号，供哨兵预警使用。
 
@@ -171,10 +171,10 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
 - 使用 `Lidar/rm25_points.yaml` 中存储的赛场地标世界坐标。
 
 #### `Lidar/fast_search.py`
-**GPU 加速点云近邻搜索（26 年赛季实例化但未实际调用）。**
+**GPU 加速点云近邻搜索（遗留 LiDAR 融合辅助模块）。**
 
 - 类 `FastSearch`（依赖 PyTorch/CuPy）：`select_points()` 在点云中截取 2D 检测框附近的点，`find_nearest_point()` 找最近质心。
-- 在 25 年双模融合（LiDAR + 视觉）时使用；26 年 `detection_main` 不传点云，此模块不参与运行。
+- 在旧版双模融合（LiDAR + 视觉）时使用；当前 `Converter` 不再实例化或调用此模块。
 
 ---
 

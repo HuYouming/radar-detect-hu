@@ -1,16 +1,3 @@
-id:
-  left: '00C33080957'
-  right: '00C33080959' # 原来的右相机编号'00C33080959' '2BDF34963204'
-  new_cam: 'DA7548439' # 新的右相机编号
-
-mode:
-  is_camera: True # 使用相机还是视频
-
-path:
-  video_path:
-
-base_line: "200"
-
 set:
   bias: [225., 395., 1399.5]
   yaw: 0.

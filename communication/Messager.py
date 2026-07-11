@@ -1002,11 +1002,13 @@ class Messager:
                     if i == 0:
                         result = self.hero_predictor.get_result()
                         self.send_map_infos[i] = result if (result and len(result) == 2) else [0.0, 0.0]
+                        # TODO: 写英雄工程预测
                         # self.send_map_infos[i] = [4.6, 12.0] # 武工程
                     elif i == 1:
                         result = self.engine_predictor.get_result()
                         self.send_map_infos[i] = result if (result and len(result) == 2) else [0.0, 0.0]
                     elif i == 4:
+                        # TODO：无人机y轴固定，其他按照雷达扫描数据发送
                         # 索引4=无人机，由ROS订阅实时更新，降级时使用最后已知坐标或[0,0]
                         drone_xyz = self.get_drone_field_xyz()
                         self.send_map_infos[i] = [drone_xyz[0], drone_xyz[1]]

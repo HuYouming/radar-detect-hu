@@ -6,9 +6,9 @@ import cv2
 class Vision_Locator:
     def __init__(self, intrinsic_matrix, dist_coeffs, world_rvec, world_tvec, extrinsic_matrix,img = None):
         """
-        初始�? Vision_Locator �?
-        :param intrinsic_matrix: 相机的内参矩�? (4x4)
-        :param extrinsic_matrix: 相机的外参矩�? (4x4)
+        初始化 Vision_Locator 
+        :param intrinsic_matrix: 相机的内参矩阵 (4x4)
+        :param extrinsic_matrix: 相机的外参矩阵 (4x4)
         """
         self.armor_height = 0.15
         self.K = intrinsic_matrix
@@ -17,9 +17,9 @@ class Vision_Locator:
         self.world_rvec = world_rvec
         self.world_tvec = world_tvec
 
-        self.minimap = cv2.imread('/root/rm/radar-detect/Lidar/RM2026.png')
+        self.minimap = cv2.imread('/root/rm/radar-detect/Lidar/RMUC25_map.jpg')
 
-        self.points_map = {}  # 用于存放区域的信�?
+        self.points_map = {}  
         self.points_map["Center_high"] = Parser_Points("Center_high", intrinsic_matrix, dist_coeffs, world_rvec,
                                                        world_tvec, extrinsic_matrix,img)
 
@@ -278,46 +278,6 @@ class Parser_Points():
         # self.region_vis(results)
         return results
 
-    def _ensure_results_in_image(self, results):
-        """
-        确保结果中的点坐标在图像范围内（width: 1280, height: 640）。
-        如果坐标小于0，则设置为0；如果坐标超出图像范围，则设置为边界值。
-        """
-        width = 1280
-        height = 640
-        for i in range(len(results)):
-            if results[i][0] < 0:
-                results[i][0] = 0
-            if results[i][0] > width:
-                results[i][0] = width
-            if results[i][1] < 0:
-                results[i][1] = 0
-            if results[i][1] > height:
-                results[i][1] = height
-        return results
-
-    def region_vis(self, region_results):
-        '''
-
-        Args:
-            region_results:
-
-        Returns:
-            visualize results
-
-        '''
-        # 将区域画在图片上
-        img = self.debug_img.copy()
-        polygon = np.array(region_results, dtype=np.int32).reshape(-1, 1, 2)
-        # 画点
-        cv2.polylines(img, [polygon], True, (0, 0, 255), 2)
-        # 调整大小
-        img = cv2.resize(img, [1000, 640])
-        cv2.imshow(self.name, img)
-        # 保存图片 文件名是name
-        file_name ="/home/nvidia/RadarWorkspace/code/Hust_Radar_2025-main/debug_img/"+self.name+ "_25" + ".png"
-        cv2.imwrite(file_name, img)
-        cv2.waitKey(1000)
 
     def return_height(self, input_point):
         # 判断点是否在多边形内

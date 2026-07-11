@@ -1,4 +1,0 @@
-[2026-07-06 18:16:17] [ROS] 节点已初始化: /unnamed
-[2026-07-06 18:16:17] [ROS] 已订阅 /drone_field_xyz
-[2026-07-06 18:16:17] [ROS] 已订阅 /radar/enemy/jam_key
-[2026-07-06 18:16:17] [ROS] 已订阅 /radar/enemy/health_array
