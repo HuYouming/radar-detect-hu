@@ -939,7 +939,7 @@ class Messager:
         
         # 可视化
         try:
-            map_image = cv2.imread("/home/radar/Radar/code/Hust_Radar/Lidar/RM2026.png")
+            map_image = cv2.imread("/root/rm/radar-detect/Lidar/RM2026.png")
         except Exception as e:
             # self.logger.log(f"Read map image error: {e}")
             print(f"Read map image error: {e}")

@@ -9,6 +9,7 @@ from Log.Log import RadarLog
 
 class Converter:
     def __init__(self, my_color, data_loader_path='parameters.yaml'):
+        self.logger = RadarLog("Converter")
         # 传入data_loader路径,用data_loader初始化类
         enemy_Base_25 = [25.50932, -7.5, 1.043 + 0.2]
         enemy_Tower_25 = [16.92483, -3.64301, 1.342 + 0.4]
@@ -62,6 +63,14 @@ class Converter:
         self.extrinsic_matrix = np.vstack((self.extrinsic_matrix, [0, 0, 0, 1]))
         # 相机到激光雷达的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
         self.extrinsic_matrix_inv = np.linalg.inv(self.extrinsic_matrix)
+        self.logger.log(
+            "lidar_to_camera extrinsic_matrix:\n"
+            + np.array2string(self.extrinsic_matrix, precision=8, suppress_small=False)
+        )
+        self.logger.log(
+            "camera_to_lidar extrinsic_matrix_inv:\n"
+            + np.array2string(self.extrinsic_matrix_inv, precision=8, suppress_small=False)
+        )
         # 相机到赛场坐标系的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
         self.camera_to_field_R = None  # 后面初始化
         self.camera_to_field_T = None  # 后面初始化
@@ -74,8 +83,6 @@ class Converter:
         # 视觉定位类
         self.vision_locator = None
         self.armor_height = 0.15
-
-        self.logger = RadarLog("Converter")
 
 
 
