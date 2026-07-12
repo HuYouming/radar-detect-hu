@@ -6,9 +6,9 @@ import cv2
 class Vision_Locator:
     def __init__(self, intrinsic_matrix, dist_coeffs, world_rvec, world_tvec, extrinsic_matrix,img = None):
         """
-        初始化 Vision_Locator 
-        :param intrinsic_matrix: 相机的内参矩阵 (4x4)
-        :param extrinsic_matrix: 相机的外参矩阵 (4x4)
+        初始�? Vision_Locator �?
+        :param intrinsic_matrix: 相机的内参矩�? (4x4)
+        :param extrinsic_matrix: 相机的外参矩�? (4x4)
         """
         self.armor_height = 0.15
         self.K = intrinsic_matrix
@@ -17,9 +17,9 @@ class Vision_Locator:
         self.world_rvec = world_rvec
         self.world_tvec = world_tvec
 
-        self.minimap = cv2.imread('/root/rm/radar-detect/Lidar/RMUC25_map.jpg')
+        self.minimap = cv2.imread('/home/nvidia/RadarWorkspace/code/Hust_Radar_2025-main/Lidar/RMUC25_map.jpg')
 
-        self.points_map = {}  
+        self.points_map = {}  # 用于存放区域的信�?
         self.points_map["Center_high"] = Parser_Points("Center_high", intrinsic_matrix, dist_coeffs, world_rvec,
                                                        world_tvec, extrinsic_matrix,img)
 
@@ -127,16 +127,13 @@ class Vision_Locator:
 
     def get_2d(self, input_point, height):
         """
-        将图像坐标映射到世界坐标系的 2D 坐标
+        将图像坐标映射到世界坐标系的 2D 坐标�?
 
         :param input_point: 输入的图像坐标（2D），例如 [x, y]
-        :param height: 物体的高度（用于调整 3D 点的高度）
+        :param height: 物体的高度（用于调整 3D 点的高度�?
         :return: 转换后的 2D 世界坐标
         """
-        height = float(height)
-        height_key = next((h for h in self.h_list if np.isclose(height, h, atol=1e-6)), height)
-        Perspective_matrix = self.Perspective_matrix.get(height_key)
-        if Perspective_matrix is None:
+        if self.h_list[height] is None:
             # 世界坐标系中的四个点
             world_points = [
                 [12, -6, self.armor_height + height],  # �?1
@@ -157,11 +154,17 @@ class Vision_Locator:
                 [16, -8],  # �?3
                 [12, -8],  # �?4
             ], dtype=np.float32)
+
             Perspective_matrix = cv2.getPerspectiveTransform(image_points.reshape(-1, 2), world_points2D)
 
-        # 应用透视变换，将输入的图像坐标投影到世界坐标
-        src_point_mat = np.array([input_point], dtype=np.float32)
-        src_point_mat = src_point_mat.reshape(1, 1, 2)
+            # 应用透视变换，将输入的图像坐标投影到世界坐标
+            src_point_mat = np.array([input_point], dtype=np.float32)
+            src_point_mat = src_point_mat.reshape(1, 1, 2)
+
+        else:
+            Perspective_matrix = self.Perspective_matrix[height]
+            src_point_mat = np.array([input_point], dtype=np.float32)
+            src_point_mat = src_point_mat.reshape(1, 1, 2)
 
         # 进行透视变换
         dst_point_mat = cv2.perspectiveTransform(src_point_mat, Perspective_matrix)
@@ -180,11 +183,10 @@ class Vision_Locator:
     def post_process(self, xy, color):
         if color == 'Blue':
             # 转换坐标
-            x, y, z, _ = xy
+            x, y, z = xy
             [x, y, z] = [28 - x, 15 - y, z]
         else:
-            x, y, z, _ = xy
-            [x, y, z] = [x, y, z]
+            [x, y, z] = xy
         return [x, y, z]
 
     def visualize(self, input_points):
@@ -221,13 +223,13 @@ class Parser_Points():
     def __init__(self, name, intrinsic_matrix, dist_coeffs, world_rvec, world_tvec, extrinsic_matrix,img = None):
         self.name = name
         self.debug_img = img
-        self.points_path = '/root/rm/radar-detect/Lidar/rm25_points.yaml'  # TODO
+        self.points_path = '/home/nvidia/RadarWorkspace/code/Hust_Radar_2025-main/Lidar/rm25_points.yaml'  # TODO
         self.extrinsic_matrix = extrinsic_matrix
         self.K = intrinsic_matrix
         self.dist_coeffs = dist_coeffs
         self.world_rvec = world_rvec
         self.world_tvec = world_tvec
-        # 读取3D点
+        # 读取3D�?
         self.points_3d = self.read_points(name)
         # 从世界坐标系到相机坐标系
         self.points_2d = self.world_to_camera()
@@ -274,6 +276,46 @@ class Parser_Points():
         # self.region_vis(results)
         return results
 
+    def _ensure_results_in_image(self, results):
+        """
+        确保结果中的点坐标在图像范围内（width: 1280, height: 640）。
+        如果坐标小于0，则设置为0；如果坐标超出图像范围，则设置为边界值。
+        """
+        width = 1280
+        height = 640
+        for i in range(len(results)):
+            if results[i][0] < 0:
+                results[i][0] = 0
+            if results[i][0] > width:
+                results[i][0] = width
+            if results[i][1] < 0:
+                results[i][1] = 0
+            if results[i][1] > height:
+                results[i][1] = height
+        return results
+
+    def region_vis(self, region_results):
+        '''
+
+        Args:
+            region_results:
+
+        Returns:
+            visualize results
+
+        '''
+        # 将区域画在图片上
+        img = self.debug_img.copy()
+        polygon = np.array(region_results, dtype=np.int32).reshape(-1, 1, 2)
+        # 画点
+        cv2.polylines(img, [polygon], True, (0, 0, 255), 2)
+        # 调整大小
+        img = cv2.resize(img, [1000, 640])
+        cv2.imshow(self.name, img)
+        # 保存图片 文件名是name
+        file_name ="/home/nvidia/RadarWorkspace/code/Hust_Radar_2025-main/debug_img/"+self.name+ "_25" + ".png"
+        cv2.imwrite(file_name, img)
+        cv2.waitKey(1000)
 
     def return_height(self, input_point):
         # 判断点是否在多边形内
