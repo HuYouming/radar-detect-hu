@@ -141,7 +141,6 @@ class CarList:
         # 对CarList实例多线程锁，为了尽量减少上锁时间，把数据处理好再写入公共区域
         self.lock = threading.Lock()
         print(self.cars[self.BlueCarsID[1] if self.my_color == "Blue" else self.RedCarsID[1]].get_field_xyz())
-        #self.assit_hero = Hero_Assit(self.cars[self.BlueCarsID[1] if self.my_color == "Blue" else self.RedCarsID[1]].get_field_xyz())
 
     # 每一个检测循环，刷新所有车辆信息,检测线程进行到写入部分时，会计算好每个追踪器和车辆的对应关系，确保一个车辆类型只被一个追踪器对应
     # 并计算好车辆的所有位置信息 ， 打包为results传入
@@ -212,14 +211,3 @@ class CarList:
     # 由标签获取车ID，如输入"R1”，返回1
     def get_car_id(self , label):
         return self.label2ID[label]
-
-    # 得到英雄辅助预瞄的yaw和pitch
-    # def get_yaw_pitch(self):
-    #    return self.assit_hero.newton_method_for_theta()
-
-
-
-
-
-
-

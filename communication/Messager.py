@@ -1,6 +1,5 @@
 from .Sender import Sender
 from .Topo_map.topo_lidar import *
-from random import randint
 
 import copy
 import json
@@ -19,16 +18,12 @@ from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 from std_msgs.msg import String
 from std_msgs.msg import Float32MultiArray
-from .assit_yaw_pitch import BallisticTrajectory
-from .alert_our_hero import is_point_nearby_numpy
 from .predictor import CarKalmanPredictor
 from .hero_topo_predictor.predict_hero import Predictor as Hero_Predictor
 from .engine_topo_predictor.predict_engine import Predictor
 
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
 
-
-# from .assit_yaw_pitch import Hero_Assit
 
 class Messager:
     def __init__(self, cfg):
@@ -76,16 +71,12 @@ class Messager:
         # self.is_vs_hg = cfg['others']['is_vs_hg']
         self.send_double_time_threshold = 240  # 发送双倍易伤的时间阈值，单位秒
 
-        # 初始化 ROS 订阅（非阻塞回调方式）
-        self._init_ros_subscribers()
-
         # 数据存储
         self.our_car_infos = []  # 我方车辆信息 , our_car_id , our_center_xy , our_camera_xyz , our_field_xyz , our_color
         self.our_drone_info = [0., 0.] # 我方无人机信息
         self.enemy_car_infos = []  # 敌方车辆信息，enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
         self.enemy_drone_info = [0., 0.] # 敌方无人机信息
         self.sentinel_alert_info = []  # 哨兵预警信息，匹配sender的generate_sentinel_alert_info(self , carID , distance , quadrant):
-        self.send_hero_assit_info = {}  # 英雄协助信息
         self.time_left = -1  # 剩余时间
         self.last_time_left = -1  # 上次剩余时间 , 用于判断是否更新
 
@@ -155,12 +146,6 @@ class Messager:
         self.is_alert_hero = False  # 是否预警英雄
 
         # self.our_hero_area = cfg["area"]["our_hero_area"]
-        self.our_hero_xyz = None
-        # 发射速度
-        self.hero_v0 = 16 + 0.1 * randint(a=-1, b=1)
-        self.hero_assit = None
-        self.is_assit_hero = False
-        self.secure_our_hero = False
         self.hero_state = 0  # 0,1,2
         self.hero_shooting_points = {1: [18.0, 4.85], 2: [18.75, 11.1]} if self.my_color == 'Blue' else {
             1: [10.0, 10.15], 2: [9.25, 3.9]}
@@ -205,6 +190,10 @@ class Messager:
 
         # flag
         self.working_flag = False
+
+        # 初始化 ROS 订阅（非阻塞回调方式）。必须放在状态字段初始化之后，
+        # 否则订阅回调可能抢先访问尚未创建的属性。
+        self._init_ros_subscribers()
 
     # 判断是否为下一秒
     def is_next_second(self):
@@ -260,18 +249,10 @@ class Messager:
         img_y = int(img_height - (y / real_height) * img_height)
         return img_x, img_y
 
-    # 解析hero_xyz信息
-    def parse_hero_xyz(self):
-        for info in self.our_car_infos:
-            track_id, our_car_id, center_xy, camera_xyz, our_field_xyz, color, is_valid = info
-            if (our_car_id == self.my_cars_id[0]):
-                self.our_hero_xyz = our_field_xyz
-
     def parse_ene_hero_xyz(self):
         for info in self.enemy_car_infos:
             track_id, our_car_id, center_xy, camera_xyz, our_field_xyz, color, is_valid = info
             if (our_car_id == self.enemy_id[0]):
-                # self.our_hero_xyz = our_field_xyz
                 if our_field_xyz == [] or is_valid == False:
                     break
                 x, y = our_field_xyz[0], our_field_xyz[1]
@@ -282,7 +263,6 @@ class Messager:
         for info in self.our_car_infos:
             track_id, our_car_id, center_xy, camera_xyz, our_field_xyz, color, is_valid = info
             if (our_car_id == self.enemy_id[1]):
-                # self.our_hero_xyz = our_field_xyz
                 if our_field_xyz == [] and is_valid == False:
                     break
                 x, y = our_field_xyz[0], our_field_xyz[1]
@@ -381,49 +361,6 @@ class Messager:
             if polygon.contains(point):
                 return True
         return False
-
-    def generate_send_map_infos(self, enemy_infos):
-        send_map_infos = [[0, 0] for _ in range(len(self.enemy_id))]
-        for enemy_car_info in enemy_infos:
-            # 提取car_id和field_xyz
-            track_id, car_id, field_xyz, is_valid = enemy_car_info[0], enemy_car_info[1], enemy_car_info[4], \
-                enemy_car_info[6]
-            if field_xyz == []:
-                # self.logger.log("send map field_xyz is empty")
-                continue
-            # 将所有信息打印
-            # print("car_id:",car_id , "field_xyz:",field_xyz , "is_valid:",is_valid)
-            # 提取x和y
-
-            x, y = field_xyz[0], field_xyz[1]
-            # x的控制边界，让他在[0,28]m , y控制在[0,15]m
-            x = max(0, min(x, 28))
-            y = max(0, min(y, 15))
-
-            # 将所有车的x，y信息打包
-            for i, enemy_id in enumerate(self.enemy_id):
-                if car_id == enemy_id:
-                    send_map_infos[i] = [x, y]
-                    break
-        return send_map_infos
-
-    def assit_hero(self):
-        if self.our_hero_xyz is None:
-            return
-        self.hero_assit = BallisticTrajectory(self.our_hero_xyz, self.hero_v0)
-        pitch, yaw = self.hero_assit.find_optimal_parameters()
-        self.send_hero_assit_info["pitch"] = pitch
-        self.send_hero_assit_info["yaw"] = yaw
-        self.is_assit_hero = True
-
-    def alert_our_hero(self,info):
-        if self.our_hero_xyz is None:
-            return
-
-        self.secure_our_hero, self.enemy_distance = is_point_nearby_numpy(self.our_hero_xyz,
-                                                                          self.generate_send_map_infos(self.enemy_car_infos))
-
-
 
     # ==================== ROS 订阅接口 ====================
 
@@ -618,7 +555,6 @@ class Messager:
         self.enemy_car_infos = enemy_car_infos
         self.parse_ene_hero_xyz()
         self.parse_engine_xyz()
-        # self.update_enemy(enemy_car_infos)
         # print(f"enemy car info{self.enemy_car_infos}")
         # self.logger.log(f"update enemy car infos{self.enemy_car_infos}")
 
@@ -637,7 +573,6 @@ class Messager:
     # 更新我方车辆信息
     def update_our_car_infos(self, our_car_infos):
         self.our_car_infos = our_car_infos
-        self.parse_hero_xyz()
 
     # 更新我方无人机的坐标（已弃用，改为 ROS 订阅 /drone_field_xyz）
     def update_our_drone_info(self, our_drone_info):
@@ -735,32 +670,6 @@ class Messager:
             self.publish_position(
                 "hero_alert",
                 {"is_alert": self.is_alert_hero},
-                tx_buff=tx_buff,
-            )
-
-    def send_hero_assit(self):
-        if self.is_assit_hero:
-            tx_buff = self.sender.generate_hero_assit_info(self.send_hero_assit_info, self.is_assit_hero)
-            self.publish_position(
-                "hero_assist",
-                {
-                    "is_assist": self.is_assit_hero,
-                    "info": self.send_hero_assit_info,
-                },
-                tx_buff=tx_buff,
-            )
-            self.logger.log("Send Hero Assist")
-
-    def send_secure_our_hero(self,infos):
-        self.alert_our_hero(infos)
-        if self.secure_our_hero:
-            tx_buff = self.sender.generate_alert_hero(self.enemy_distance)
-            self.publish_position(
-                "secure_our_hero",
-                {
-                    "secure": self.secure_our_hero,
-                    "enemy_distance": self.enemy_distance,
-                },
                 tx_buff=tx_buff,
             )
 
@@ -1002,8 +911,6 @@ class Messager:
                     if i == 0:
                         result = self.hero_predictor.get_result()
                         self.send_map_infos[i] = result if (result and len(result) == 2) else [0.0, 0.0]
-                        # TODO: 写英雄工程预测
-                        # self.send_map_infos[i] = [4.6, 12.0] # 武工程
                     elif i == 1:
                         result = self.engine_predictor.get_result()
                         self.send_map_infos[i] = result if (result and len(result) == 2) else [0.0, 0.0]

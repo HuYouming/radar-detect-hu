@@ -92,10 +92,9 @@ Three concurrent subsystems sharing a central data store (`CarList`):
 - **`Lidar/PointCloud.py`** — Ring-buffer point cloud queue; DBSCAN clustering via open3d to extract robot centroids.
 - **`Lidar/fast_search.py`** — GPU-accelerated (CuPy/Torch) spatial search for matching point cloud to 2D bounding boxes.
 - **`Car/Car.py`** — Per-robot state machine (`Car`) and thread-safe collection (`CarList`, 12 robots). Tracks field XYZ, trust flag, and lifespan countdown for stale detections.
-- **`communication/Messager.py`** — Central communication hub running in its own thread (~5 fps). Subscribes to ROS topics (`/drone_field_xyz`, `/radar/enemy/jam_key`, `/radar/enemy/health_array`); sends mini-map positions, sentinel alert angles, hero-approach warnings, and double-effect decisions over serial. Contains `HeroPredictor` and engine `Predictor` (topo-based) for filling in stale detections.
+- **`communication/Messager.py`** — Central communication hub running in its own thread (~5 fps). Subscribes to ROS topics (`/drone_field_xyz`, `/radar/enemy/jam_key`, `/radar/enemy/health_array`); sends mini-map positions, sentinel alert angles, enemy HP, and double-effect decisions over serial. Contains hero/engine topo predictors for filling stale detections.
 - **`communication/Sender.py`** / **`Receiver.py`** — Low-level serial frame encode/decode.
 - **`communication/predictor.py`** — Per-car Kalman filter for position prediction.
-- **`communication/assit_yaw_pitch.py`** — Ballistic trajectory solver: given our hero's field XYZ and muzzle speed, computes optimal pitch/yaw for the sentry cannon to cover the hero.
 - **`Counter/init_angle_sender.py`** — Aerial drone detection and tracking. Processes LiDAR against a pre-loaded map PCD to detect the drone, computes yaw/pitch for the sentry cannon, sends over serial.
 - **`Radio/field_info_publisher.py`** — Decodes referee-system UDP broadcast and republishes relevant fields (health, marks, dart target) as ROS topics consumed by `Messager`.
 - **`Radio/radar_udp_receiver.py`** — Raw referee system UDP decode (binary protocol with CRC8).

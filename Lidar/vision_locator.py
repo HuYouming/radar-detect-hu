@@ -17,7 +17,7 @@ class Vision_Locator:
         self.world_rvec = world_rvec
         self.world_tvec = world_tvec
 
-        self.minimap = cv2.imread('/root/rm/radar-detect/Lidar/RMUC25_map.jpg')
+        self.minimap = cv2.imread('/root/rm/radar-detect/Lidar/RM2026.png')
 
         self.points_map = {}  
         self.points_map["Center_high"] = Parser_Points("Center_high", intrinsic_matrix, dist_coeffs, world_rvec,
@@ -34,16 +34,6 @@ class Vision_Locator:
         self.points_map["Self_Left_High"] = Parser_Points("Self_Left_High", intrinsic_matrix, dist_coeffs, world_rvec,
                                                           world_tvec, extrinsic_matrix,img)
 
-        self.points_map["Enemy_Slope"] = Parser_Points("Enemy_Slope", intrinsic_matrix, dist_coeffs, world_rvec,
-                                                       world_tvec, extrinsic_matrix,img)
-        self.points_map["Self_Slope"] = Parser_Points("Self_Slope", intrinsic_matrix,
-                                                      dist_coeffs, world_rvec, world_tvec,
-                                                      extrinsic_matrix,img)
-
-        self.points_map["Enemy_Left_High_Slope"] = Parser_Points("Enemy_Left_High_Slope", intrinsic_matrix,
-                                                                 dist_coeffs, world_rvec, world_tvec,
-                                                                 extrinsic_matrix,img)
-
         self.points_map["Enemy_Right_High"] = Parser_Points("Enemy_Right_High", intrinsic_matrix, dist_coeffs,
                                                             world_rvec,
                                                             world_tvec, extrinsic_matrix,img)
@@ -54,23 +44,19 @@ class Vision_Locator:
                                                          world_rvec, world_tvec, extrinsic_matrix,img)
         self.points_map["Enemy_Fortress"] = Parser_Points("Enemy_Fortress", intrinsic_matrix, dist_coeffs, world_rvec,
                                                           world_tvec, extrinsic_matrix,img)
+        self.points_map["Exchange_High"] = Parser_Points("Exchange_High", intrinsic_matrix, dist_coeffs, world_rvec,
+                                                          world_tvec, extrinsic_matrix,img)
 
-        self.points_map["Self_Narrow_Path"] = Parser_Points("Self_Narrow_Path", intrinsic_matrix, dist_coeffs,
-                                                            world_rvec,
-                                                            world_tvec, extrinsic_matrix,img)
+
+        self.points_map["Exchange_High"].heights = 0.4
 
         self.points_map["Center_high"].heights = 0.3
 
-        self.points_map["Enemy_Slope"].heights = 0.325
-        self.points_map["Self_Slope"].heights = 0.325
+        self.points_map["Enemy_Fortress"].heights = 0.147
+        self.points_map["Self_Fortress"].heights = 0.147
 
-        self.points_map["Enemy_Left_High_Slope"].heights = 0.08
-
-        self.points_map["Enemy_Fortress"].heights = 0.151
-        self.points_map["Self_Fortress"].heights = 0.151
-
-        self.points_map["Enemy_Hero_High"].heights = 0.6
-        self.points_map["Self_Hero_High"].heights = 0.6
+        self.points_map["Enemy_Hero_High"].heights = 0.4
+        self.points_map["Self_Hero_High"].heights = 0.4
         #  注意对应关系
         self.points_map["Enemy_Right_High"].heights = 0.2
         self.points_map["Self_Right_High"].heights = 0.2
@@ -78,10 +64,9 @@ class Vision_Locator:
         self.points_map["Enemy_Left_High"].heights = 0.2
         self.points_map["Self_Left_High"].heights = 0.2
 
-        self.points_map["Self_Narrow_Path"].heights = 0.0
 
         # 计算并存储透视变换矩阵
-        self.h_list = [0.0, 0.08, 0.151, 0.2, 0.325, 0.3, 0.6]
+        self.h_list = [0.0, 0.147, 0.2, 0.3, 0.4]
         self.Perspective_matrix = self._calculate_perspective_matrix()
         # print("self_matrix", self.Perspective_matrix)
 
@@ -221,7 +206,7 @@ class Parser_Points():
     def __init__(self, name, intrinsic_matrix, dist_coeffs, world_rvec, world_tvec, extrinsic_matrix,img = None):
         self.name = name
         self.debug_img = img
-        self.points_path = '/root/rm/radar-detect/Lidar/rm25_points.yaml'  # TODO
+        self.points_path = '/root/rm/radar-detect/debug/26_point.yaml'  # TODO
         self.extrinsic_matrix = extrinsic_matrix
         self.K = intrinsic_matrix
         self.dist_coeffs = dist_coeffs

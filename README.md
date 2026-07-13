@@ -213,7 +213,7 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
   - 调用 `send_map()`（~4.8fps）：打包 12 辆车坐标发给下位机。
   - 调用 `send_sentry_perception()` + `send_sentinel_enemy_HP()`（~5fps）：发送哨兵感知数据和敌方血量。
   - 当检测到 `is_alert_hero` 时调用 `send_sentinel_alert_hero()`。
-- **拓扑预测降级**：当某辆车检测数据超时（`send_map_info_is_latest[i] <= 0`），用 `hero_predictor`/`engine_predictor` 的拓扑预测结果填充，避免发 `[0,0]`。
+- **拓扑预测降级**：当敌方英雄/工程检测数据超时（`send_map_info_is_latest[0/1] <= 0`），用 `hero_predictor`/`engine_predictor` 的拓扑预测结果填充；其它敌方车辆使用固定备份点或无人机 ROS 坐标。
 
 #### `communication/Sender.py`
 **串口帧编码与发送。**
@@ -245,24 +245,13 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
 **单车卡尔曼滤波位置预测。**
 
 - 类 `CarKalmanPredictor`：4 维状态（x, y, vx, vy），恒速模型。`update(x, y)` 接收观测，`predict() → (x, y)` 预测下一位置，`get_current_estimate()` 取当前估计值。
-- `Messager` 为 12 辆车各维护一个实例（`self.predictor` 字典），当检测丢失时用预测值填充地图发送。
-
-#### `communication/assit_yaw_pitch.py`
-**弹道解算，为己方英雄提供辅助瞄准。**
-
-- 类 `BallisticTrajectory`：以英雄赛场 XYZ 和初速度为输入，用 ODE 数值积分（`scipy.integrate.solve_ivp`）解算抛体轨迹，`find_optimal_parameters()` 返回最优仰角（pitch）和偏航角（yaw）。
-- `Messager.assit_hero()` 调用，结果经 `Sender.send_hero_assit_info()` 发给下位机。
-
-#### `communication/alert_our_hero.py`
-**己方英雄保护预警。**
-
-- 单函数 `is_point_nearby_numpy(target, points, radius=5.0) → (bool, float)`：检测敌方车辆是否在英雄 5m 范围内，返回是否触发 + 最近距离。
-- `Messager.send_secure_our_hero()` 调用后经 `Sender.send_secure_our_hero()` 发给下位机。
+- `Messager` 保留 12 辆车对应的 `self.predictor` 字典和 `update_enemy()` 更新入口。
 
 #### `communication/hero_topo_predictor/` 和 `communication/engine_topo_predictor/`
-**基于拓扑地图的位置预测（英雄和工程车）。**
+**基于拓扑地图的敌方英雄/工程位置预测。**
 
-- 当检测数据超时，`Messager` 用这两个预测器的输出填充发送队列。
+- `Messager` 在收到有效敌方英雄坐标时更新 `hero_predictor`。
+- `Messager` 保留工程预测器 `engine_predictor`，并在工程车检测数据超时时读取预测输出。
 - 区域数据来自各自目录下的 `area_data.yaml` / `engine_area_data.yaml`。
 
 #### `communication/Topo_map/topo_lidar.py`

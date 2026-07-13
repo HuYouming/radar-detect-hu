@@ -498,8 +498,6 @@ communication:
 | `double_effect_decision` | 双倍易伤决策次数和密钥/分析结果。 |
 | `sentinel_alert` | 哨兵预警车辆 ID、距离、象限。 |
 | `hero_alert` | 英雄预警开关。 |
-| `hero_assist` | 英雄辅助 pitch/yaw。 |
-| `secure_our_hero` | 我方英雄保护预警。 |
 | `double_effect_times_to_car` | 给己方车辆同步双倍易伤次数。 |
 
 ## 外部输入 Topic
