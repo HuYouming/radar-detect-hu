@@ -164,7 +164,7 @@ def add_line(draw_payload, p1, p2, color=(0, 255, 122), thickness=2):
 
 
 if __name__ == '__main__':
-    video_path = "/root/rm/radar-detect/data/test_video_trimmed.mp4"  # 请改为/path/to/video.avi
+    video_path = "/root/rm/radar-detect/data/final.mp4"  # 请改为/path/to/video.avi
     detector_config_path = "./configs/detector_config.yaml"
     binocular_camera_cfg_path = "./configs/bin_cam_config.yaml"
     main_config_path = "./configs/main_config.yaml"

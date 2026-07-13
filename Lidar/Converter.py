@@ -27,7 +27,7 @@ class Converter:
         with open(data_loader_path, 'r',encoding='utf-8', errors='ignore') as file:
             data_loader = yaml.safe_load(file)
         # 2025
-        self.real_points_25 = [enemy_Base_25, enemy_Tower_25, self_FORTRESS, self_Tower_25, enemy_FORTRESS_RIGHT_BACK]
+        self.real_points_25 = [enemy_Base_25, enemy_Tower_25, self_FORTRESS, self_Tower_25, enemy_FORTREES_RIGHT_FRONT]
         #test
         self.test_points = [enemy_FORTREES_RIGHT_FRONT, enemy_FORTRESS_RIGHT_BACK,self.point_3,self.point_4]
         # 获取相机坐标系到激光雷达坐标系的外参

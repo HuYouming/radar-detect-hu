@@ -19,6 +19,13 @@ from Lidar.vision_locator import Vision_Locator
 DEFAULT_VIDEO_PATH = os.path.join(REPO_ROOT, "data", "video.avi")
 DEFAULT_CONVERTER_CONFIG = os.path.join(REPO_ROOT, "configs", "converter_config.yaml")
 DEFAULT_CAMERA_CONFIG = os.path.join(REPO_ROOT, "configs", "bin_cam_config.yaml")
+CALIBRATION_POINT_NAMES = [
+    "enemy_Base_25",
+    "enemy_Tower_25",
+    "self_FORTRESS",
+    "self_Tower_25",
+    "enemy_FORTREES_RIGHT_FRONT",
+]
 
 
 def parse_args():
@@ -158,13 +165,78 @@ def draw_projected_regions(image, locator):
     return canvas
 
 
+def draw_text_with_outline(image, text, origin, color, scale=0.65, thickness=2):
+    cv2.putText(
+        image,
+        text,
+        origin,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        scale,
+        (0, 0, 0),
+        thickness + 2,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        image,
+        text,
+        origin,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        scale,
+        color,
+        thickness,
+        cv2.LINE_AA,
+    )
+
+
+def draw_calibration_projection(image, converter, rotation_vector, translation_vector, pixel_points):
+    canvas = image.copy()
+    world_points = np.array(converter.real_points_25, dtype=np.float32)
+    projected_points, _ = cv2.projectPoints(
+        world_points,
+        rotation_vector,
+        translation_vector,
+        converter.intrinsic_matrix,
+        converter.distortion_matrix,
+    )
+    projected_points = projected_points.reshape(-1, 2)
+
+    for index, projected_point in enumerate(projected_points):
+        projected_xy = tuple(np.rint(projected_point).astype(int))
+        clicked_xy = tuple(np.rint(pixel_points[index]).astype(int))
+        error = float(np.linalg.norm(projected_point - pixel_points[index]))
+        name = CALIBRATION_POINT_NAMES[index] if index < len(CALIBRATION_POINT_NAMES) else f"point_{index + 1}"
+
+        cv2.line(canvas, clicked_xy, projected_xy, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.drawMarker(
+            canvas,
+            clicked_xy,
+            (255, 255, 255),
+            markerType=cv2.MARKER_CROSS,
+            markerSize=24,
+            thickness=2,
+            line_type=cv2.LINE_AA,
+        )
+        cv2.circle(canvas, projected_xy, 9, (0, 255, 255), -1, cv2.LINE_AA)
+        cv2.circle(canvas, projected_xy, 12, (0, 0, 0), 2, cv2.LINE_AA)
+        draw_text_with_outline(
+            canvas,
+            f"{index + 1}: {name} {error:.1f}px",
+            (projected_xy[0] + 12, projected_xy[1] - 10),
+            (0, 255, 255),
+            scale=0.6,
+            thickness=2,
+        )
+
+    return canvas, projected_points
+
+
 def main():
     args = parse_args()
     image = read_debug_frame(args)
     converter = Converter(args.color, args.converter_config)
 
     print("请按 Converter.real_points_25 的顺序点击 5 个标定点，按 q 结束当前点选窗口。")
-    print("顺序: enemy_Base_25, enemy_Tower_25, self_FORTRESS, self_Tower_25, enemy_FORTRESS_RIGHT_BACK")
+    print("顺序: " + ", ".join(CALIBRATION_POINT_NAMES))
     pixel_points = pick_five_points(image)
 
     rotation_vector, translation_vector, field_to_camera_matrix = solve_field_to_camera(converter, pixel_points)
@@ -178,9 +250,25 @@ def main():
     )
 
     result = draw_projected_regions(image, locator)
+    result, projected_points = draw_calibration_projection(
+        result,
+        converter,
+        rotation_vector,
+        translation_vector,
+        pixel_points,
+    )
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     cv2.imwrite(args.output, result)
     print(f"field_to_camera_matrix:\n{field_to_camera_matrix}")
+    print("calibration reprojection:")
+    for index, projected_point in enumerate(projected_points):
+        error = float(np.linalg.norm(projected_point - pixel_points[index]))
+        print(
+            f"  {index + 1}. {CALIBRATION_POINT_NAMES[index]} "
+            f"clicked={pixel_points[index].tolist()} "
+            f"projected={projected_point.tolist()} "
+            f"error={error:.2f}px"
+        )
     print(f"debug image saved: {args.output}")
 
     show = result
