@@ -28,27 +28,18 @@ def get_new_box(xyxy,xywh):
     '''
     x1,y1,x2,y2 = xyxy
     x ,y ,w1,h1 = xywh
-    # 找到bbox中心最下方的点
-    new_x = x+w1/2
-    new_y = y2
+    w = x2-x1
+    h = y2-y1
     # 如果（x，y）位于图像下半部分
     if y > 3036 / 2:
         # 计算新的x1和y1
-        w = x2-x1
-        h = y2-y1
         new_x1 = x1+w/2
         new_y1 = y1+h/2+h/3 # 这里是为了更准确的定位车底盘位置
-        new_w = w
-        new_h = h
 
     else:
-        w = x2-x1
-        h = y2-y1
         new_x1 = x1+w/2
         new_y1 = y1+h/2+h/7
-        new_w = w
-        new_h = h
-    return [new_x,new_y,new_x1,new_y1]
+    return [new_x1,new_y1,new_x1,new_y1]
 
 
 class VisionRosBuffer:
