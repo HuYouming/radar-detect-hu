@@ -1,5 +1,5 @@
 global:
-  my_color: "Red" # "Blue"
+  my_color: "Blue" # "Blue"
   is_debug: True # False
 
 
@@ -28,9 +28,9 @@ messager:
   enabled: true
   state_topic: '/messager/state'
   main_loop_hz: 100.0
-  map_hz: 20.0
+  map_hz: 4.9
   sentry_hz: 5.0
-  enemy_hp_hz: 5.0
+  enemy_hp_hz: 4.9
   double_effect_hz: 25.0
 
 others:

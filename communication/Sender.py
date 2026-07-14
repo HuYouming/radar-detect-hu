@@ -2,9 +2,6 @@
 import serial
 import serial.tools.list_ports
 import struct
-# from assit_yaw_pitch import Hero_Assit
-# from ruamel import YAML
-import time
 from Radio.interferance_level_sender import InterferenceSender
 from Log.Log import RadarLog
 class Sender:

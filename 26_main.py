@@ -31,10 +31,10 @@ def get_new_box(xyxy,xywh):
     w = x2-x1
     h = y2-y1
     # 如果（x，y）位于图像下半部分
-    if y > 3036 / 2:
+    if y > 2064 / 2:
         # 计算新的x1和y1
         new_x1 = x1+w/2
-        new_y1 = y1+h/2+h/3 # 这里是为了更准确的定位车底盘位置
+        new_y1 = y1+h/2 + h/5 # 这里是为了更准确的定位车底盘位置
 
     else:
         new_x1 = x1+w/2
@@ -271,21 +271,15 @@ if __name__ == '__main__':
 
                     # 获取新xyxy_box , 原来是左上角和右下角，现在想要中心点保持不变，宽高设为原来的一半，再计算一个新的xyxy_box,可封装
                         new_xywh_box = get_new_box(xyxy_box, xywh_box)
+                        if is_debug:
+                            add_circle(draw_payload, (new_xywh_box[0], new_xywh_box[1]), radius=8, color=(255, 0, 255))
                         center = converter.detection_main(new_xywh_box,t=stamp)
                         center = converter.vision_locator.post_process(center, global_my_color)
-                        distance = converter.get_distance(center)
-
-                        if distance == 0:
-                            continue
 
                     # 将点转到赛场坐标系下
                         field_xyz = center
-                    # 计算赛场坐标系下的距离
-                        field_distance = converter.get_distance(field_xyz)
 
-                    # 在图像上写距离,位置为xyxy_box的左上角,可以去掉
                         if is_debug:
-                            add_text(draw_payload, "distance: {:.2f}".format(field_distance), (xyxy_box[0], xyxy_box[1]))
                             add_text(
                                 draw_payload,
                                 "x: {:.2f}y:{:.2f}z:{:.2f}".format(field_xyz[0], field_xyz[1], field_xyz[2]),
@@ -350,11 +344,6 @@ if __name__ == '__main__':
                             add_circle(draw_payload, my_reprojected_point)
                             add_circle(draw_payload, enemy_reprojected_point)
                             add_line(draw_payload, my_reprojected_point, enemy_reprojected_point)
-                            add_text(
-                                draw_payload,
-                                "distance: {:.2f}".format(distance),
-                                ((my_center_xy[0] + enemy_center_xy[0]) / 2, (my_center_xy[1] + enemy_center_xy[1]) / 2),
-                            )
                     # 判断距离是否符合
                         if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
                             continue
@@ -369,8 +358,7 @@ if __name__ == '__main__':
                     if min_distance_car_id != -1:
                         if is_debug and my_reprojected_point is not None:
                             add_text(draw_payload, "id: {}".format(min_distance_car_id), (my_reprojected_point[0], my_reprojected_point[1] - 10))
-                            add_text(draw_payload, "distance: {:.2f}".format(min_distance), (my_reprojected_point[0], my_reprojected_point[1] + 10))
-                            add_text(draw_payload, "angle: {:.2f}".format(min_distance_angle), (my_reprojected_point[0], my_reprojected_point[1] + 30))
+                            add_text(draw_payload, "angle: {:.2f}".format(min_distance_angle), (my_reprojected_point[0], my_reprojected_point[1] + 10))
                         # 将角度转为象限 ， carID , distance , quadrant
                         quadrant = converter.angle_to_quadrant(min_distance_angle)
                         # zip

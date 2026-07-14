@@ -20,6 +20,9 @@ class Vision_Locator:
         self.minimap = cv2.imread('/root/rm/radar-detect/Lidar/RM2026.png')
 
         self.points_map = {}  
+        self.points_map["Exchange_High"] = Parser_Points("Exchange_High", intrinsic_matrix, dist_coeffs, world_rvec,
+                                                          world_tvec, extrinsic_matrix,img)
+
         self.points_map["Center_high"] = Parser_Points("Center_high", intrinsic_matrix, dist_coeffs, world_rvec,
                                                        world_tvec, extrinsic_matrix,img)
 
@@ -44,9 +47,6 @@ class Vision_Locator:
                                                          world_rvec, world_tvec, extrinsic_matrix,img)
         self.points_map["Enemy_Fortress"] = Parser_Points("Enemy_Fortress", intrinsic_matrix, dist_coeffs, world_rvec,
                                                           world_tvec, extrinsic_matrix,img)
-        self.points_map["Exchange_High"] = Parser_Points("Exchange_High", intrinsic_matrix, dist_coeffs, world_rvec,
-                                                          world_tvec, extrinsic_matrix,img)
-
 
         self.points_map["Exchange_High"].heights = 0.4
 

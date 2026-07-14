@@ -17,6 +17,8 @@ class Converter:
         self_Tower_25 = [10.91891, -11.17852, 0.46769 + 0.4]# 我方前哨靠我侧血条底部
         enemy_FORTREES_RIGHT_FRONT = [20.83546, -8.47781, 0.0] # 敌方堡垒右前角
         enemy_FORTRESS_RIGHT_BACK = [21.96454, -8.47781, 0.0] # 敌方堡垒右后角
+        big_BUFF = [13.76595, -7.26594, 2.6]
+        enemy_HERO_HIGH = [22.33747, -12.07767, 0.6] # 对面英雄吊射高地
         # test
         self.point_1 = [9.553, -6.08209, 0.2]
         self.point_2 = [10.018, -9.92556, 0.2]
@@ -28,6 +30,8 @@ class Converter:
             data_loader = yaml.safe_load(file)
         # 2025
         self.real_points_25 = [enemy_Base_25, enemy_Tower_25, self_FORTRESS, self_Tower_25, enemy_FORTREES_RIGHT_FRONT]
+        # 2026
+        self.real_points_26 = [big_BUFF, enemy_Tower_25, self_FORTRESS, self_Tower_25, enemy_HERO_HIGH]
         #test
         self.test_points = [enemy_FORTREES_RIGHT_FRONT, enemy_FORTRESS_RIGHT_BACK,self.point_3,self.point_4]
         # 获取相机坐标系到激光雷达坐标系的外参

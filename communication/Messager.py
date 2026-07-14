@@ -57,12 +57,9 @@ class Messager:
         self.status_logger = RadarLog("Messager_Status")
 
         # 发送部分
-        self.position_topic = communication_cfg.get('position_topic', '/messge/position')
-        self.use_ros_position = communication_cfg.get('send_transport', 'serial') == 'ros1'
         sender_cfg = copy.deepcopy(cfg)
         self.sender = Sender(sender_cfg)
-        self.position_pub = None
-        self.position_seq = 0
+        # TODO：这里可能有bug
         self.double_effect_times = 0  # 第几次发送双倍易伤效果决策,第一次发送值为1，第二次发送值为2，每局最多只能发送到2,不能发送3
         self.udp_sender = InterferenceSender("192.168.3.99", 40003)  # 用于发送干扰等级的UDP发送器，独立于主Sender，专门发送int类型的干扰等级数据
 
@@ -394,42 +391,8 @@ class Messager:
             rospy.Subscriber(self.receiver_state_topic, String, self._receiver_state_callback, queue_size=20)
             self.logger.log(f"[ROS] 已订阅 {self.receiver_state_topic}")
 
-            self.position_pub = rospy.Publisher(self.position_topic, String, queue_size=20)
-            self.logger.log(f"[ROS] 已发布 {self.position_topic}")
-
         except Exception as e:
             self.logger.log(f"[ROS] 订阅初始化失败: {e}")
-
-    def _to_builtin(self, value):
-        if isinstance(value, np.ndarray):
-            return value.tolist()
-        if isinstance(value, np.generic):
-            return value.item()
-        if isinstance(value, bytes):
-            return value.hex()
-        if isinstance(value, (list, tuple)):
-            return [self._to_builtin(item) for item in value]
-        if isinstance(value, dict):
-            return {key: self._to_builtin(item) for key, item in value.items()}
-        return value
-
-    def publish_position(self, msg_type, payload, rate_hz=None, tx_buff=None):
-        if tx_buff is not None and not self.use_ros_position:
-            self.sender.send_info(tx_buff)
-            return
-        if self.position_pub is None:
-            return
-        msg = {
-            "seq": self.position_seq,
-            "stamp": rospy.Time.now().to_sec() if rospy.core.is_initialized() else time.time(),
-            "type": msg_type,
-            "rate_hz": rate_hz,
-            "payload": self._to_builtin(payload),
-        }
-        if tx_buff is not None:
-            msg["frame_hex"] = tx_buff.hex()
-        self.position_pub.publish(String(data=json.dumps(msg, separators=(',', ':'))))
-        self.position_seq += 1
 
     def _drone_field_callback(self, msg):
         try:
@@ -590,17 +553,8 @@ class Messager:
     # 新版本发送车辆位置，一次性发送全部车辆，需要补全
     def send_map(self, infos):
         tx_buff = self.sender.generate_all_location_info(infos)
-        self.publish_position(
-            "map",
-            {
-                "positions": infos,
-                "enemy_ids": self.enemy_id,
-                "our_ids": self.my_cars_id,
-            },
-            rate_hz=self.map_hz,
-            tx_buff=tx_buff,
-        )
-        self.logger.log(f'Sent map info: {infos}')
+        self.sender.send_info(tx_buff)
+        self.logger.log(f'Sent map infos: {infos}')
 
     # 发送哨兵预警角信息
     def send_sentry_alert_angle(self):
@@ -611,15 +565,7 @@ class Messager:
             return
         carID, distance, quadrant = sentinel_alert_info
         tx_buff = self.sender.generate_sentinel_alert_info(carID, distance, quadrant)
-        self.publish_position(
-            "sentinel_alert",
-            {
-                "car_id": carID,
-                "distance": distance,
-                "quadrant": quadrant,
-            },
-            tx_buff=tx_buff,
-        )
+        self.sender.send_info(tx_buff)
         self.logger.log(f'Sent sentinel_alert_info {sentinel_alert_info}')
         # print("send_sentinel_alert_info")
 
@@ -633,15 +579,7 @@ class Messager:
             car_infos.append([float(info[0]), float(info[1])])
         
         tx_buff = self.sender.generate_sentinel_field_info(car_infos)
-        self.publish_position(
-            "sentry_perception",
-            {
-                "positions": car_infos,
-                "enemy_ids": self.enemy_id,
-            },
-            rate_hz=self.sentry_hz,
-            tx_buff=tx_buff,
-        )
+        self.sender.send_info(tx_buff)
 
     def send_sentinel_enemy_HP(self, enemy_health_info):
         # 构造哨兵敌方HP数据: 5个 [HP] 格式
@@ -653,25 +591,13 @@ class Messager:
             hp_infos.append(int(hp))
         
         tx_buff = self.sender.generate_enemy_HP_info(hp_infos)
-        self.publish_position(
-            "enemy_hp",
-            {
-                "hp": hp_infos,
-                "enemy_ids": [self.enemy_id[0], self.enemy_id[1], self.enemy_id[2], self.enemy_id[3], self.enemy_id[5]],
-            },
-            rate_hz=self.enemy_hp_hz,
-            tx_buff=tx_buff,
-        )
+        self.sender.send_info(tx_buff)
 
     # 发送哨兵预警英雄信息
     def send_sentinel_alert_hero(self):
         if self.is_alert_hero:
             tx_buff = self.sender.generate_hero_alert_info(self.is_alert_hero)
-            self.publish_position(
-                "hero_alert",
-                {"is_alert": self.is_alert_hero},
-                tx_buff=tx_buff,
-            )
+            self.sender.send_info(tx_buff)
 
     # 更新flag，将 ROS 回调更新的信息解析为本地flag
     def update_flags(self):
@@ -741,15 +667,7 @@ class Messager:
 
     def send_double_effect_analysis_result(self, times=1, analysis_result='000000'):
         tx_buff = self.sender.generate_double_effect_analysis_result_info(times, analysis_result)
-        self.publish_position(
-            "double_effect_decision",
-            {
-                "times": times,
-                "analysis_result": analysis_result,
-            },
-            rate_hz=self.double_effect_hz,
-            tx_buff=tx_buff,
-        )
+        self.sender.send_info(tx_buff)
 
     # 新双倍易伤发送机制
     def send_double_effect_decision(self):
@@ -831,14 +749,7 @@ class Messager:
         second_car_id = self.my_sentinel_id - 4
         for car_id in (first_car_id, second_car_id):
             tx_buff = self.sender.generate_double_effect_times_to_car(car_id, self.have_double_effect_times)
-            self.publish_position(
-                "double_effect_times_to_car",
-                {
-                    "car_id": car_id,
-                    "double_effect_times": self.have_double_effect_times,
-                },
-                tx_buff=tx_buff,
-            )
+            self.sender.send_info(tx_buff)
 
     def run(self):
         # 问题出在这里，阻塞导致效率很低
@@ -968,7 +879,6 @@ class Messager:
                 # p = [14, 7.5]
                 # debug_data = [p,p,p,p,p,p]
                 self.send_map(self.send_map_infos)
-                self.logger.log(f"Sent map infos: {self.send_map_infos}")
 
             skip_sentry, self.last_send_sentry_time = Tools.frame_control_skip(self.sentry_hz, self.last_send_sentry_time)
             if not skip_sentry:
