@@ -1,0 +1,35 @@
+{
+  "image": "/root/rm/radar-detect/debug/RM2026point.png",
+  "coordinate_system": "field coordinates; x in [0, 28], y in [0, 15]",
+  "conversion": "x = pixel_x / 1258 * 28; y = (675 - pixel_y) / 675 * 15",
+  "points": [
+    {
+      "number": 1,
+      "x": 4.09539,
+      "y": 11.333333,
+      "pixel_x": 184,
+      "pixel_y": 165
+    },
+    {
+      "number": 2,
+      "x": 10.483307,
+      "y": 11.4,
+      "pixel_x": 471,
+      "pixel_y": 162
+    },
+    {
+      "number": 3,
+      "x": 11.284579,
+      "y": 12.511111,
+      "pixel_x": 507,
+      "pixel_y": 112
+    },
+    {
+      "number": 4,
+      "x": 9.63752,
+      "y": 10.155556,
+      "pixel_x": 433,
+      "pixel_y": 218
+    }
+  ]
+}

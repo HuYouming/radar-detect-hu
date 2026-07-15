@@ -213,7 +213,7 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
   - 调用 `send_map()`（~4.8fps）：打包 12 辆车坐标发给下位机。
   - 调用 `send_sentry_perception()` + `send_sentinel_enemy_HP()`（~5fps）：发送哨兵感知数据和敌方血量。
   - 当检测到 `is_alert_hero` 时调用 `send_sentinel_alert_hero()`。
-- **拓扑预测降级**：当敌方英雄/工程检测数据超时（`send_map_info_is_latest[0/1] <= 0`），用 `hero_predictor`/`engine_predictor` 的拓扑预测结果填充；其它敌方车辆使用固定备份点或无人机 ROS 坐标。
+- **位置超时降级**：当车辆位置 life 小于 0 时，对应小地图坐标发送 `[0.0, 0.0]`，不再使用预测点或固定备份点。
 
 #### `communication/Sender.py`
 **串口帧编码与发送。**
@@ -240,25 +240,6 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
   - `0x020C`（dart_target）→ 飞镖目标
   - `0x0401`（interferance）→ 干扰等级
 - **通信方式**：通过 `multiprocessing.Value`（bool/int）和 `multiprocessing.Array`（int[]）将数据传给同进程的 `Messager` 主线程，无需 pickle，实时共享。
-
-#### `communication/predictor.py`
-**单车卡尔曼滤波位置预测。**
-
-- 类 `CarKalmanPredictor`：4 维状态（x, y, vx, vy），恒速模型。`update(x, y)` 接收观测，`predict() → (x, y)` 预测下一位置，`get_current_estimate()` 取当前估计值。
-- `Messager` 保留 12 辆车对应的 `self.predictor` 字典和 `update_enemy()` 更新入口。
-
-#### `communication/hero_topo_predictor/` 和 `communication/engine_topo_predictor/`
-**基于拓扑地图的敌方英雄/工程位置预测。**
-
-- `Messager` 在收到有效敌方英雄坐标时更新 `hero_predictor`。
-- `Messager` 保留工程预测器 `engine_predictor`，并在工程车检测数据超时时读取预测输出。
-- 区域数据来自各自目录下的 `area_data.yaml` / `engine_area_data.yaml`。
-
-#### `communication/Topo_map/topo_lidar.py`
-**拓扑图数据结构（已导入，使用逻辑已注释）。**
-
-- 定义 `Topology`、`Area`、`Point`、`MathAnalays` 类，描述赛场区域连通关系。
-- `Messager.py` 第 3 行 `from .Topo_map.topo_lidar import *` 仍然激活，**删除此文件会导致 Messager 导入失败**。
 
 ---
 
@@ -295,7 +276,7 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
   - 订阅 `/livox/lidar`（`PointCloud2`），将实时点云与预加载的静态赛场地图 PCD（`RM2026_map.pcd`）做差，DBSCAN 聚类找到动态目标（无人机）。
   - 发布 `/drone_field_xyz`（`PointCloud2`）→ `Messager` 通过 ROS 订阅获取无人机坐标。
   - 发布 `/init_yawpitch`（`Float32MultiArray`）→ 哨兵炮台控制。
-- 从 `configs/drone_searcher_config.yaml` 和 `configs/world_points.yaml` 读取地图特征点和追踪参数。
+- 从 `configs/world_points.yaml` 读取地图特征点。
 - 将录制数据存入 `Counter/recordings/`（可用于事后回放分析）。
 
 ---
@@ -348,7 +329,6 @@ Hikrobot MvImport Python SDK 封装，被 `detect/Capture.py` import。
 | `converter_config.yaml` | 相机内参（fx/fy/cx/cy）、外参 R/T、畸变系数 |
 | `bin_cam_config.yaml` | 相机硬件参数：分辨率 4024×3036、曝光时间、增益、序列号 |
 | `bytetrack.yaml` | ByteTrack 追踪器超参数（`track_thresh`、`match_thresh`、`track_buffer` 等） |
-| `drone_searcher_config.yaml` | 无人机搜索参数（点云过滤半径、聚类参数等），由 `init_angle_sender.py` 读取 |
 | `world_points.yaml` | 赛场已知地标的世界坐标，用于 LiDAR 外参标定和无人机定位 |
 
 ---

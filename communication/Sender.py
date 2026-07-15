@@ -294,20 +294,6 @@ class Sender:
 
         return tx_buff
 
-    def generate_sentry_topo_info(self,results):
-        # 对results进行解析
-        # results是一个字典
-        parse_list = []
-        parse_list.append([0,0])
-        for i in range(1,8):
-            if i == 7:
-                parse_list.append([0,0])
-            else:
-                parse_list.append(results[i])
-        # print(parse_list)
-        tx_buff = self.generate_sentinel_field_info(parse_list)
-        self.send_info(tx_buff)
-
     def generate_sentry_perception_info(self,infos):
         cmd_id = struct.pack('H', 0x0301)
         data_cmd_id = struct.pack('H', 0x0201)
@@ -591,4 +577,3 @@ cmd_id 和 frame_tail 的 9 个字节以及数据段头结构的 6 个字节，�
     def send_secure_our_hero(self, secure_our_hero, enemy_distance):
         tx_buff = self.generate_alert_hero(enemy_distance)
         self.send_info(tx_buff)
-

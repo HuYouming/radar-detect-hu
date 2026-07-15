@@ -5,7 +5,6 @@ import time
 import rospy
 from std_msgs.msg import String
 from ruamel.yaml import YAML
-from Tools.Tools import Tools
 from Log.Log import RadarLog
 
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
@@ -188,132 +187,6 @@ class Receiver:
         crc16_cal_bytes = struct.pack('<H', crc16_cal)
         return crc16 == crc16_cal_bytes
 
-    # 将帧头，cmd_id , data合成用来计算crc16的数据
-    def get_tx_buff_to_cal_crc16(self,header,cmd_id,data):
-        return header + struct.pack('H',cmd_id) + data
-
-    # 定位帧头
-    def find_sof(self):
-        # 读取单个字节直至找到SOF
-        find_time = 0
-        while not rospy.is_shutdown():
-            if not self.working_flag:
-                return
-            # 0.01s如果没有接收就返回空
-            try:
-                self.ser.timeout = 0.01
-                byte = self.ser.read(1)
-            except serial.SerialTimeoutException as e:
-                print("serial read timeout")
-                self.logger.log(f"time out as {e}")
-            # print("finding sof")
-            if byte == b'\xA5':
-                # print("find SOF")
-                return True
-            # 整体再挂起0.01s,控制在50HZ
-            # print("find sof sleep")
-            time.sleep(0.001)
-        return False
-
-    # frame_header解析,返回data_length, crc8校验结果
-    def parse_frame_header(self):
-        # 找到SOF
-        if not self.find_sof():
-            print("not")
-            return False
-
-        # 读取帧头（SOF之后的4字节）
-        header = self.ser.read(4)
-        data_length, seq, crc8 = struct.unpack('<HBB', header)
-        # 把SOF加回去，获得完整帧头
-        full_header = struct.pack('B', 165) + header
-
-        # 校验crc8是否正确
-        _header = struct.pack('B', 165) + struct.pack('H', data_length) + struct.pack('B', seq)
-        if self.check_crc8(_header,crc8):
-            return data_length, True , full_header
-        else:
-            # print("check fail")
-            return -1,False , full_header
-
-    # 读取cmd_id
-    def read_cmd_id(self):
-        cmd_id = self.ser.read(2)
-        return struct.unpack('H', cmd_id)[0]
-
-    # 读取data
-    def read_data(self,data_length):
-        data = self.ser.read(data_length)
-        return data
-
-    # 读取frame_tail
-    def read_frame_tail(self):
-        frame_tail = self.ser.read(2)
-        return frame_tail
-
-    # 读取剩余比赛时间 , 返回是否可信，剩余时间
-    # def read_remaining_time(self):
-    #     # 解析出data_length, 检查CRC8
-    #     data_length, is_valid  , header= self.parse_frame_header()
-    #     if not is_valid:
-    #         print("Frame header CRC8 check failed")
-    #         return False ,0
-
-    #     # 读取cmd_id
-    #     cmd_id = self.read_cmd_id()
-
-    #     # 确保是我们需要的命令
-    #     if cmd_id == 0x0001:
-    #         # 1+2+8+2(crc16) , 第2-3字节是uint16_t stage_remain_time;
-    #         remaining_time_data = self.read_data(data_length+2)
-    #         remaining_time = remaining_time_data[1]+remaining_time_data[2]*256
-    #         # print(f"Remaining time: {remaining_time}")
-    #         self.read_frame_tail()
-
-    #         return True , remaining_time
-    #     else:
-    #         # print(f"Unknown cmd_id: {cmd_id}")
-    #         # 514是0x
-
-    #         return False
-    # 解析usb转串口由单片机整理发上来的数据
-    def parse_receiver_data(self):
-
-        while not rospy.is_shutdown():
-            # 控制帧率为10fps
-
-            if not self.working_flag:
-                print("not")
-                return
-            time_interval = time.time() - self.last_time_main_loop
-            if time_interval < 0.02:  # 主循环控制在50HZ
-                time.sleep(0.02 - (time_interval))
-            self.last_time_main_loop = time.time()
-
-            data_length, is_valid, header = self.parse_frame_header()
-            print("receiver one ")
-            if not is_valid:
-                print("Frame header CRC8 check failed")
-                continue
-
-            rest_data = self.ser.read(2 + data_length + 2)  # 包括命令码和CRC16
-
-            # 重构帧头+命令码+数据以计算crc16
-            tx_buff = header + rest_data[:-2]
-
-            # 计算帧尾是否正确
-            frame_tail_ori = rest_data[-2:]
-
-            # if not self.check_crc16(tx_buff , frame_tail_ori):
-            # print("CRC16 check failed")
-            # continue
-
-            cmd_id = rest_data[:2]  # 读取命令码
-            data = rest_data[2:-2]  # 读取数据
-
-            # 处理不同的命令
-            self.switch_method(cmd_id, data)
-
     # 存log
     def log_buffer_content(self, buffer):
         self.buffer_logger.log(f"Buffer content: {buffer.hex()}")
@@ -348,7 +221,7 @@ class Receiver:
                     sof_index = buffer.find(b'\xA5')
                     if sof_index == -1:
                         buffer = b''  # 清空缓冲区
-                        print("no xa5")
+                        self.logger.log("SOF 0xA5 not found")
                         break
 
                     # 截取帧头
@@ -398,50 +271,6 @@ class Receiver:
                 except Exception as e:
                     self.logger.log(f"Exception: {e}")
 
-
-    # 解析帧头和cmd_id , 所有的东西都需要保留下来，因为要用来计算crc16
-    def parse_cmd_id(self):
-
-        while not rospy.is_shutdown():
-            # 控制帧率为10fps
-
-
-            if not self.working_flag:
-                print("not")
-                return
-
-            print("receiver")
-
-
-            self.last_time_main_loop = Tools.frame_control_sleep(1000, self.last_time_main_loop)
-
-
-            data_length, is_valid , header = self.parse_frame_header()
-            # print("receiver one ")
-            if not is_valid:
-                print("Frame header CRC8 check failed")
-                continue
-
-            rest_data = self.ser.read(2+data_length+2) # 包括命令码和CRC16
-
-            # 重构帧头+命令码+数据以计算crc16
-            tx_buff = header + rest_data[:-2]
-
-            # 计算帧尾是否正确
-            frame_tail_ori = rest_data[-2:]
-
-
-            # if not self.check_crc16(tx_buff , frame_tail_ori):
-                # print("CRC16 check failed")
-                # continue
-
-            cmd_id = rest_data[:2] # 读取命令码
-            data = rest_data[2:-2] # 读取数据
-
-            # 处理不同的命令
-            self.switch_method(cmd_id,data)
-            # print("debug receiver main loop")
-
     # 调用这个函数来处理不同的命令
     def switch_method(self, cmd_id, data):
         try:
@@ -449,38 +278,25 @@ class Receiver:
         except Exception as e:
             print(f"Error: {e}")
             self.logger.log(f"Error in switch method: {e}")
-        # print(f"cmd_id: {cmd_id_value}")
+            return
         self.logger.log(f"find command id{cmd_id_value}")
         try:
             if cmd_id_value == 0x0001: # 比赛进行时间解析
-                print("parse time")
                 self.process_game_status(data)
-                # if time.time() - self.last_time_main_loop < 0.01:
-                #     # print("receiver sleep")
-                #     time.sleep(0.01 - ( time.time() - self.last_time_main_loop))
-                # self.last_time = time.time()
             elif cmd_id_value == 0x0003:
-                # print("parse health")
                 self.parse_robot_status(data)
-                pass
             elif cmd_id_value == 0x020C:
-                print("parse mark process")
                 self.parse_mark_process(data)
             elif cmd_id_value == 0x020E:
-                print("parse double effect")
                 self.parse_double_effect(data)
                 self.parse_interferance_status(data)
             elif cmd_id_value == 0x0105: # 飞镖目标
-                # print("parse dart target")
-                # print("parse dart target")
                 self.parse_dart_target(data)
             elif cmd_id_value == 0x0301:
-                print("received radar data")
+                self.logger.log("received radar data")
         except Exception as e:
             print(f"Error: {e}")
             self.logger.log(f"Error in switch method: {e}")
-
-        # Add conditions for other cmd_ids
 
     # 飞镖目标解析
     '''
@@ -503,40 +319,14 @@ bit 9-15：保留
     '''
     def parse_dart_target(self,data):
         # data是小端格式的
-        # print(data)
         dart_info_value = struct.unpack('<H', data[1:3])[0]
-
-        # 按位打印data
-        # print("start bit")
-        # for i in range(8):
-        #     print((dart_info_value >> i) & 0x01)
-        # print("stop bit")
 
         # 提取第 5-7 位的值
         dart_target = (dart_info_value >> 5) & 0x03
 
-        print(f"Dart target: {dart_target}")
         self.logger.log(f"Dart target: {dart_target}")
-        # hit_target = data[1] & 0x06
-        # print(struct.unpack('H',data[1]))
         self.receiver_state["dart_target"] = int(dart_target)
         self.publish_state("dart_target", {"dart_target": int(dart_target)})
-        # print(f"Hit target: {hit_target}")
-        # 如果目标为1，则认为第一次想发送双倍易伤，如果为2，则认为第二次想发送双倍易伤
-
-        # if hit_target == 1:
-        #     self.send_double_count_1 += 1
-        #     if self.send_double_count_1 > 1:
-        #         self.send_double_flag = hit_target
-        #     return
-        # elif hit_target == 2:
-        #     self.send_double_count_2 += 1
-        #     if self.send_double_count_2 > 1:
-        #         self.send_double_flag = hit_target
-        #     return
-        # else:
-        #     self.send_double_count_1 = 0
-        #     self.send_double_count_2 = 0
 
 
     # 比赛进行时间时间解析
@@ -642,37 +432,6 @@ bit 9-15：保留
 
 
 
-    # 找到0x0305
-    def parse_0x0305(self):
-        # 找到SOF
-
-        data_length , is_valid = self.parse_frame_header()
-
-        if not is_valid:
-            return False
-
-        # 读取cmd_id
-        cmd_id = self.read_cmd_id()
-        if cmd_id[0] != 773:
-            return False
-
-        # 读取data
-        data = self.read_data(data_length)
-        carid =struct.unpack('H',data[:2])
-        x= struct.unpack('f', data[2:6])
-        y = struct.unpack('f', data[6:])
-        print("carId:",carid,"x:",x,"y:",y)
-        # 读取frame_tail
-
-        frame_tail = self.read_frame_tail()
-
-        # frame_tail是crc16，校验
-        crc16 = struct.unpack('H',frame_tail)
-        tx_buff = struct.pack('H', carid) + struct.pack('ff', x, y)
-
-
-        return True
-
     # 关闭串口
     def close(self):
         if self.ser is not None:
@@ -680,43 +439,6 @@ bit 9-15：保留
 
 
 
-
-
-def parse_frame(self,serial_port):
-    # 找到SOF
-    if not self.find_sof(serial_port):
-        return False
-
-    # 读取帧头（SOF之后的4字节）
-    header = serial_port.read(4)
-    # print(header)
-    data_length, seq, crc8 = struct.unpack('<HBB', header)
-    # print(data_length)
-    # print(seq)
-    # print(crc8)
-    # print(seq)
-    # print(crc8)
-
-    # 根据data_length读取data和frame_tail
-    data_and_tail = serial_port.read(2+data_length + 2)  # 包括命令码和CRC16
-
-    # 解析出命令码和数据内容
-    cmd_id = struct.unpack('H',data_and_tail[:2])
-    if cmd_id[0] == 773:
-        data = data_and_tail[2:-2]
-
-        carid =struct.unpack('H',data[:2])
-        x= struct.unpack('f', data[2:6])
-        y = struct.unpack('f', data[6:])
-        print("carId:",carid,"x:",x,"y:",y)
-
-
-    # print(cmd_id)
-
-
-
-
-    return True
 
 
 def load_config(config_path):

@@ -1,5 +1,4 @@
 from .Sender import Sender
-from .Topo_map.topo_lidar import *
 
 import copy
 import json
@@ -18,9 +17,6 @@ from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 from std_msgs.msg import String
 from std_msgs.msg import Float32MultiArray
-from .predictor import CarKalmanPredictor
-from .hero_topo_predictor.predict_hero import Predictor as Hero_Predictor
-from .engine_topo_predictor.predict_engine import Predictor
 
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
 
@@ -76,16 +72,6 @@ class Messager:
         self.sentinel_alert_info = []  # 哨兵预警信息，匹配sender的generate_sentinel_alert_info(self , carID , distance , quadrant):
         self.time_left = -1  # 剩余时间
         self.last_time_left = -1  # 上次剩余时间 , 用于判断是否更新
-
-        # predictor
-        self.predictor = {1: CarKalmanPredictor(0, 0), 101: CarKalmanPredictor(0, 0),
-                          2: CarKalmanPredictor(0, 0), 102: CarKalmanPredictor(0, 0),
-                          3: CarKalmanPredictor(0, 0), 103: CarKalmanPredictor(0, 0),
-                          4: CarKalmanPredictor(0, 0), 104: CarKalmanPredictor(0, 0),
-                          5: CarKalmanPredictor(0, 0), 106: CarKalmanPredictor(0, 0),
-                          7: CarKalmanPredictor(0, 0), 107: CarKalmanPredictor(0, 0)}
-
-        self.predictor_times = {1: 0, 101: 0, 2: 0, 102: 0, 3: 0, 103: 0, 4: 0, 104: 0, 5: 0, 106: 0, 7: 0, 107: 0}
 
         # 次数记录
         self.hero_enter_times = 0
@@ -146,9 +132,6 @@ class Messager:
         self.hero_state = 0  # 0,1,2
         self.hero_shooting_points = {1: [18.0, 4.85], 2: [18.75, 11.1]} if self.my_color == 'Blue' else {
             1: [10.0, 10.15], 2: [9.25, 3.9]}
-        self.hero_predictor = Hero_Predictor(self.my_color, 'hero')
-        self.engine_predictor = Predictor(self.my_color, 'engine')
-        self.send_map_infos_bkp = [2.39681, 2.36].copy() if self.sender.my_color == 'Blue' else [25.60419, 12.6389].copy()
 
         # 发送小地图历史记录
         self.send_map_infos = [[0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], \
@@ -177,13 +160,6 @@ class Messager:
 
         # 飞镖目标
         self.dart_target = 0
-
-        # 拓扑图
-        # self.topo_map = Topology(self.my_color)
-        # 打印区域列表
-
-        # for area in self.area_list:
-        #     print(area)
 
         # flag
         self.working_flag = False
@@ -245,29 +221,6 @@ class Messager:
         img_x = int((x / real_width) * img_width)
         img_y = int(img_height - (y / real_height) * img_height)
         return img_x, img_y
-
-    def parse_ene_hero_xyz(self):
-        for info in self.enemy_car_infos:
-            track_id, our_car_id, center_xy, camera_xyz, our_field_xyz, color, is_valid = info
-            if (our_car_id == self.enemy_id[0]):
-                if our_field_xyz == [] or is_valid == False:
-                    break
-                x, y = our_field_xyz[0], our_field_xyz[1]
-                self.hero_predictor.update_cord([x, y])
-                break
-
-    def parse_engine_xyz(self):
-        for info in self.our_car_infos:
-            track_id, our_car_id, center_xy, camera_xyz, our_field_xyz, color, is_valid = info
-            if (our_car_id == self.enemy_id[1]):
-                if our_field_xyz == [] and is_valid == False:
-                    break
-                x, y = our_field_xyz[0], our_field_xyz[1]
-                self.engine_predictor.update_cord([x, y])
-                break
-
-    # def topo_info(self):
-    #     return self.topo_map.find_attackable_regions(self.enemy_car_infos)
 
     # 包含可视化展示，仅DEBUG使用
     def hero_alert(self, image):
@@ -516,22 +469,8 @@ class Messager:
     def update_enemy_car_infos(self, enemy_car_infos):
         # 如果为空，直接返回
         self.enemy_car_infos = enemy_car_infos
-        self.parse_ene_hero_xyz()
-        self.parse_engine_xyz()
         # print(f"enemy car info{self.enemy_car_infos}")
         # self.logger.log(f"update enemy car infos{self.enemy_car_infos}")
-
-    def update_enemy(self, enemy_infos):
-        for enemy_info in enemy_infos:
-            track_id, car_id, field_xyz, is_valid = enemy_info[0], enemy_info[1], enemy_info[4], enemy_info[6]
-            if field_xyz == []:
-                continue
-            else:
-                x, y = field_xyz[0], field_xyz[1]
-                if car_id in self.predictor.keys():
-                    self.predictor[car_id].update(x, y)
-                else:
-                    continue
 
     # 更新我方车辆信息
     def update_our_car_infos(self, our_car_infos):
@@ -814,32 +753,15 @@ class Messager:
                 # self.logger.log(f"[ROS] Enemy health data not fresh, using default or previous value: {self.enemy_health_info}")
 
             for i in range(12):
-                self.send_map_info_is_latest[i] -= 1 if self.send_map_info_is_latest[i] > 0 else 0
+                self.send_map_info_is_latest[i] -= 1
             # self.logger.log(f"life : {self.send_map_info_is_latest}")
 
             for i, life_time in enumerate(self.send_map_info_is_latest[:6]):
-                if life_time <= 0:
-                    if i == 0:
-                        result = self.hero_predictor.get_result()
-                        self.send_map_infos[i] = result if (result and len(result) == 2) else [0.0, 0.0]
-                    elif i == 1:
-                        result = self.engine_predictor.get_result()
-                        self.send_map_infos[i] = result if (result and len(result) == 2) else [0.0, 0.0]
-                    elif i == 4:
-                        # TODO：无人机y轴固定，其他按照雷达扫描数据发送
-                        # 索引4=无人机，由ROS订阅实时更新，降级时使用最后已知坐标或[0,0]
-                        drone_xyz = self.get_drone_field_xyz()
-                        self.send_map_infos[i] = [drone_xyz[0], drone_xyz[1]]
-                    else:
-                        self.send_map_infos[i] = self.send_map_infos_bkp.copy()
+                if life_time < 0:
+                    self.send_map_infos[i] = [0.0, 0.0]
             for i in range(6, 12):
-                if self.send_map_info_is_latest[i] <= 0:
-                    if i == 10:  # 我方6号无人机
-                        # 我方无人机坐标使用停机坪坐标
-                        if self.my_color == "Blue":
-                            self.send_map_infos[i] = [27.5, 0.5]
-                        else:
-                            self.send_map_infos[i] = [0.5, 14.5]
+                if self.send_map_info_is_latest[i] < 0:
+                    self.send_map_infos[i] = [0.0, 0.0]
 
             for enemy_car_info in enemy_car_infos:
                 _, car_id, field_xyz, is_valid = enemy_car_info[0], enemy_car_info[1], enemy_car_info[4], enemy_car_info[6]

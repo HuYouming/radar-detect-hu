@@ -206,7 +206,7 @@ class Parser_Points():
     def __init__(self, name, intrinsic_matrix, dist_coeffs, world_rvec, world_tvec, extrinsic_matrix,img = None):
         self.name = name
         self.debug_img = img
-        self.points_path = '/root/rm/radar-detect/debug/26_point.yaml'  # TODO
+        self.points_path = '/root/rm/radar-detect/Lidar/26_point.yaml'  # TODO
         self.extrinsic_matrix = extrinsic_matrix
         self.K = intrinsic_matrix
         self.dist_coeffs = dist_coeffs
