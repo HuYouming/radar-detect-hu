@@ -29,6 +29,7 @@ class Messager:
         self.state_topic = messager_cfg.get('state_topic', '/messager/state')
         communication_cfg = cfg.get('communication', {})
         self.receiver_state_topic = communication_cfg.get('receiver_state_topic', '/receiver/state')
+        self.guess_topic = communication_cfg.get('guess_topic', '/guess/point')
         self.main_loop_hz = float(messager_cfg['main_loop_hz'])
         self.map_hz = float(messager_cfg['map_hz'])
         self.sentry_hz = float(messager_cfg['sentry_hz'])
@@ -70,6 +71,8 @@ class Messager:
         self.enemy_car_infos = []  # 敌方车辆信息，enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
         self.enemy_drone_info = [0., 0.] # 敌方无人机信息
         self.sentinel_alert_info = []  # 哨兵预警信息，匹配sender的generate_sentinel_alert_info(self , carID , distance , quadrant):
+        self.car_life_infos = {}
+        self.guess_points = {}
         self.time_left = -1  # 剩余时间
         self.last_time_left = -1  # 上次剩余时间 , 用于判断是否更新
 
@@ -344,6 +347,9 @@ class Messager:
             rospy.Subscriber(self.receiver_state_topic, String, self._receiver_state_callback, queue_size=20)
             self.logger.log(f"[ROS] 已订阅 {self.receiver_state_topic}")
 
+            rospy.Subscriber(self.guess_topic, String, self._guess_point_callback, queue_size=5)
+            self.logger.log(f"[ROS] 已订阅 {self.guess_topic}")
+
         except Exception as e:
             self.logger.log(f"[ROS] 订阅初始化失败: {e}")
 
@@ -384,6 +390,32 @@ class Messager:
         self.update_enemy_car_infos(payload.get("enemy_car_infos", []))
         self.update_our_car_infos(payload.get("our_car_infos", []))
         self.update_sentinel_alert_info(payload.get("sentinel_alert_info", []))
+        self.update_car_life_infos(payload.get("car_life_infos", []))
+
+    def _guess_point_callback(self, msg):
+        try:
+            payload = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            self.logger.log(f"[ROS] {self.guess_topic} JSON解析错误: {exc}")
+            return
+
+        stamp = float(payload.get("stamp", time.time()))
+        guess_points = {}
+        for point in payload.get("points", []):
+            try:
+                car_id = int(point.get("car_id"))
+                x = float(point.get("x", 0.0))
+                y = float(point.get("y", 0.0))
+            except (TypeError, ValueError):
+                continue
+            guess_points[car_id] = {
+                "name": point.get("name", ""),
+                "x": x,
+                "y": y,
+                "active": bool(point.get("active", False)),
+                "stamp": stamp,
+            }
+        self.guess_points = guess_points
 
     def _receiver_state_callback(self, msg):
         try:
@@ -475,6 +507,59 @@ class Messager:
     # 更新我方车辆信息
     def update_our_car_infos(self, our_car_infos):
         self.our_car_infos = our_car_infos
+
+    def update_car_life_infos(self, car_life_infos):
+        life_infos = {}
+        for info in car_life_infos:
+            try:
+                car_id = int(info.get("car_id"))
+            except (AttributeError, TypeError, ValueError):
+                continue
+            life_infos[car_id] = {
+                "life_span": int(info.get("life_span", 0)),
+                "trust": bool(info.get("trust", False)),
+            }
+        self.car_life_infos = life_infos
+
+    def is_car_vision_valid(self, car_id):
+        for car_info in self.enemy_car_infos + self.our_car_infos:
+            if len(car_info) < 7:
+                continue
+            if car_info[1] == car_id:
+                field_xyz = car_info[4]
+                is_valid = car_info[6]
+                return field_xyz != [] and bool(is_valid)
+        return False
+
+    def is_car_life_finished(self, car_id):
+        life_info = self.car_life_infos.get(car_id)
+        if life_info is not None:
+            return life_info["life_span"] <= 0 or not life_info["trust"]
+
+        for car_info in self.enemy_car_infos + self.our_car_infos:
+            if len(car_info) >= 7 and car_info[1] == car_id:
+                return not bool(car_info[6])
+        return False
+
+    def apply_guess_points(self):
+        now = time.time()
+        for car_id, point in self.guess_points.items():
+            if not point.get("active", False):
+                continue
+            if now - float(point.get("stamp", 0.0)) > 1.0:
+                continue
+            if self.is_car_vision_valid(car_id):
+                continue
+            if point.get("name") != "drone" and not self.is_car_life_finished(car_id):
+                continue
+
+            x = max(0.0, min(float(point.get("x", 0.0)), 28.0))
+            y = max(0.0, min(float(point.get("y", 0.0)), 15.0))
+            for i, enemy_id in enumerate(self.enemy_id):
+                if car_id == enemy_id:
+                    self.send_map_infos[i] = [x, y]
+                    self.send_map_info_is_latest[i] = 5
+                    break
 
     # 更新我方无人机的坐标（已弃用，改为 ROS 订阅 /drone_field_xyz）
     def update_our_drone_info(self, our_drone_info):
@@ -788,6 +873,8 @@ class Messager:
                         self.send_map_infos[i + 6] = [x, y]
                         self.send_map_info_is_latest[i + 6] = 5
                         break
+
+            self.apply_guess_points()
 
             if self.is_next_second():
                 self.status_logger.log(

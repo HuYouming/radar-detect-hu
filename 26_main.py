@@ -100,7 +100,7 @@ class MessagerStatePublisher:
         self.state_pub = rospy.Publisher(state_topic, String, queue_size=1)
         self.seq = 0
 
-    def publish(self, enemy_car_infos, our_car_infos, sentinel_alert_info, vision_seq, vision_stamp):
+    def publish(self, enemy_car_infos, our_car_infos, sentinel_alert_info, car_life_infos, vision_seq, vision_stamp):
         payload = {
             "seq": self.seq,
             "stamp": time.time(),
@@ -109,6 +109,7 @@ class MessagerStatePublisher:
             "enemy_car_infos": to_builtin(enemy_car_infos),
             "our_car_infos": to_builtin(our_car_infos),
             "sentinel_alert_info": to_builtin(sentinel_alert_info),
+            "car_life_infos": to_builtin(car_life_infos),
         }
         self.state_pub.publish(String(data=json.dumps(payload, separators=(',', ':'))))
         self.seq += 1
@@ -238,6 +239,7 @@ if __name__ == '__main__':
                 "seq": vision_buffer.get_seq(),
                 "detect_stamp": vision_buffer.get_stamp(),
                 "stamp": time.time(),
+                "car_life_infos": [],
                 "texts": [],
                 "circles": [],
                 "lines": [],
@@ -295,6 +297,7 @@ if __name__ == '__main__':
 
                     # 将结果传入carList
             carList.update_car_info(carList_results)
+            draw_payload["car_life_infos"] = carList.get_life_info()
             all_infos = carList.get_all_info() # 此步不做trust的筛选，留给messager做
             my_car_infos = []
             enemy_car_infos = []
@@ -369,6 +372,7 @@ if __name__ == '__main__':
                     enemy_car_infos,
                     my_car_infos,
                     sentinel_alert_info,
+                    draw_payload["car_life_infos"],
                     vision_buffer.get_seq(),
                     vision_buffer.get_stamp(),
                 )

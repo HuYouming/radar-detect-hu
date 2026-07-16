@@ -23,4 +23,4 @@ ros:
   timestamp_tolerance_sec: 0.002
   display_enabled: True
   display_width: 1080
-  display_height: 960
+  display_height: 720

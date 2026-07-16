@@ -190,6 +190,20 @@ class CarList:
                 results.append([car.track_id , car.car_id, car.center_xy, car.camera_xyz, car.field_xyz , car.color , car.trust])
         return results
 
+    # 获取所有车辆生命周期信息，用于视觉结果话题发布
+    def get_life_info(self):
+        results = []
+        with self.lock:
+            for car in self.cars.values():
+                results.append({
+                    "track_id": car.track_id,
+                    "car_id": car.car_id,
+                    "life_span": car.life_span,
+                    "life_span_max": car.life_span_max,
+                    "trust": car.trust,
+                })
+        return results
+
     # 简易辅助哨兵决策测试用，获取图像坐标系下我方哨兵(7号车）和敌方车辆的中心点信息,返回results
     # result:[sentinel_xy , enemy_infos] , sentinel_xy:[sentinel_x,sentinel_y] , 归一化
     # enemy_info in enemy_infos:[enemy_id , center_x , center_y] # enemy_id为1-5,7 或101-105,107

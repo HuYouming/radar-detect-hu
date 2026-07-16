@@ -20,6 +20,7 @@ communication:
   send_transport: 'serial' # Messager 发送端保持串口；Receiver->Messager 状态同步使用 ROS
   position_topic: '/messge/position'
   receiver_state_topic: '/receiver/state'
+  guess_topic: '/guess/point'
   port: '/dev/ttyUSB0' # 串口
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间
