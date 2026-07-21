@@ -169,7 +169,7 @@ class Converter:
         v = np.clip(y, 0, self.height - 1)
         camera_point = np.array([[[u, v]]], dtype=np.float32)
         height = self.vision_locator.get_height(camera_point)
-        [x, y] = self.vision_locator.parser(camera_point)
+        [x, y] = self.vision_locator.parser(camera_point, height)
         y += 15 # 平移坐标系
         return [x, y, height + self.vision_locator.armor_height, t]
 

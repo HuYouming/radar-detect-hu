@@ -77,6 +77,38 @@ class Vision_Locator:
         point = np.asarray(input_point, dtype=np.float32).reshape(1, 1, 2)
         return cv2.undistortPoints(point, self.K, self.dist_coeffs, P=self.K)
 
+    def pixel_to_camera_ray(self, input_point):
+        point = np.asarray(input_point, dtype=np.float32).reshape(1, 1, 2)
+        normalized = cv2.undistortPoints(point, self.K, self.dist_coeffs)
+        x, y = normalized[0][0]
+        return np.array([float(x), float(y), 1.0], dtype=np.float64)
+
+    def field_to_camera_rotation(self):
+        rotation = np.asarray(self.world_rvec, dtype=np.float64)
+        if rotation.shape == (3, 3):
+            return rotation
+        return cv2.Rodrigues(rotation.reshape(3, 1))[0]
+
+    def intersect_height_plane(self, input_point, height):
+        target_z = self.armor_height + float(height)
+        field_to_camera_r = self.field_to_camera_rotation()
+        camera_to_field_r = field_to_camera_r.T
+        field_to_camera_t = np.asarray(self.world_tvec, dtype=np.float64).reshape(3)
+
+        camera_center_field = -camera_to_field_r.dot(field_to_camera_t)
+        ray_camera = self.pixel_to_camera_ray(input_point)
+        ray_field = camera_to_field_r.dot(ray_camera)
+
+        if abs(ray_field[2]) < 1e-9:
+            return None
+
+        scale = (target_z - camera_center_field[2]) / ray_field[2]
+        if scale <= 0:
+            return None
+
+        point_field = camera_center_field + scale * ray_field
+        return float(point_field[0]), float(point_field[1])
+
     def _calculate_perspective_matrix(self):
         # 定义世界坐标系中的四个点
         ans = {}
@@ -115,7 +147,7 @@ class Vision_Locator:
                 return height
         return 0
 
-    def get_2d(self, input_point, height):
+    def get_2d_by_perspective(self, input_point, height):
         """
         将图像坐标映射到世界坐标系的 2D 坐标
 
@@ -160,9 +192,15 @@ class Vision_Locator:
         # 返回变换后的 2D 世界坐标
         return results
 
-    def parser(self, xy):
+    def get_2d(self, input_point, height):
+        results = self.intersect_height_plane(input_point, height)
+        if results is not None:
+            return results
+        return self.get_2d_by_perspective(input_point, height)
+
+    def parser(self, xy, height=None):
         # TODO
-        temp_height = self.get_height(xy)
+        temp_height = self.get_height(xy) if height is None else height
         if temp_height > 0.79:
             return [19.322, -1.915]
         return self.get_2d(xy, temp_height)
