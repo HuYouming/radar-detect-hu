@@ -165,8 +165,9 @@ class Converter:
         '''
         x, y, w, h = box
         # 原图中装甲板的中心下沿作为待仿射变化的点
-        camera_point = np.array([[[min(x, self.width), min(y, self.height)]]],
-                                dtype=np.float32)
+        u = np.clip(x, 0, self.width - 1)
+        v = np.clip(y, 0, self.height - 1)
+        camera_point = np.array([[[u, v]]], dtype=np.float32)
         height = self.vision_locator.get_height(camera_point)
         [x, y] = self.vision_locator.parser(camera_point)
         y += 15 # 平移坐标系

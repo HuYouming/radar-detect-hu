@@ -73,6 +73,10 @@ class Vision_Locator:
         # 计算外参矩阵 [R | t]
         self.extrinsic_matrix = extrinsic_matrix
 
+    def undistort_point(self, input_point):
+        point = np.asarray(input_point, dtype=np.float32).reshape(1, 1, 2)
+        return cv2.undistortPoints(point, self.K, self.dist_coeffs, P=self.K)
+
     def _calculate_perspective_matrix(self):
         # 定义世界坐标系中的四个点
         ans = {}
@@ -87,7 +91,7 @@ class Vision_Locator:
             # 将世界坐标投影到图像坐标
             world_points = np.array(world_points, dtype=np.float32)
             image_points, _ = cv2.projectPoints(world_points, self.world_rvec, self.world_tvec, self.K,
-                                                self.dist_coeffs)
+                                                None)
 
             # 2D 世界坐标转换为图像坐标（仅考虑平面上的 2D 坐标）
             world_points2D = np.array([
@@ -104,6 +108,7 @@ class Vision_Locator:
 
     def get_height(self, input_point):
         # 获取点的高度
+        input_point = self.undistort_point(input_point)
         for points in self.points_map.values():
             height = points.return_height(input_point)
             if height > 0:
@@ -133,7 +138,7 @@ class Vision_Locator:
             # 将世界坐标投影到图像坐标
             world_points = np.array(world_points, dtype=np.float32)
             image_points, _ = cv2.projectPoints(world_points, self.world_rvec, self.world_tvec, self.K,
-                                                self.dist_coeffs)
+                                                None)
             # print("image_points", image_points)
             # �? 2D 世界坐标转换为图像坐标（仅考虑平面上的 2D 坐标�?
             world_points2D = np.array([
@@ -145,7 +150,7 @@ class Vision_Locator:
             Perspective_matrix = cv2.getPerspectiveTransform(image_points.reshape(-1, 2), world_points2D)
 
         # 应用透视变换，将输入的图像坐标投影到世界坐标
-        src_point_mat = np.array([input_point], dtype=np.float32)
+        src_point_mat = self.undistort_point(input_point)
         src_point_mat = src_point_mat.reshape(1, 1, 2)
 
         # 进行透视变换
@@ -250,7 +255,7 @@ class Parser_Points():
             self.world_rvec,
             self.world_tvec,
             self.K,
-            self.dist_coeffs
+            None
         )
         # 转换为整�?
 
@@ -266,7 +271,7 @@ class Parser_Points():
         # 使用 cv2.pointPolygonTest 判断点是否在多边形内
         # input_point �? cv2.Point2f 类型的点
         if cv2.pointPolygonTest(np.array(self.points_2d, dtype=np.int32),
-                                (int(input_point[0][0][0]), int(input_point[0][0][1])),
+                                (float(input_point[0][0][0]), float(input_point[0][0][1])),
                                 False) > 0:
             # 点在多边形内部，返回高度�?
             return self.heights
