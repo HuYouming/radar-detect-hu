@@ -37,23 +37,11 @@ class Guess:
         self.guess_yaml = self._load_yaml(GUESS_YAML)
         self.main_yaml = self._load_yaml(MAIN_YAML)
 
-        self.color = self.main_yaml['global']['my_color']
-        self.points = self._load_points(self.guess_yaml.get(self.color, {}))
+        self.color = self.main_yaml.get('global', {}).get('my_color', 'Red')
+        self.targets = self._build_targets(self.color)
+        self.points = self._load_points(self.guess_yaml.get(self.color, {}), self.targets.keys())
         self.seq = 0
         self.timeout_sec = 4.0
-
-        if self.color == "Blue":
-            self.targets = {
-                "hero": {"car_id": 1, "label": "R1", "mark_index": 0},
-                "engineer": {"car_id": 2, "label": "R2", "mark_index": 1},
-                "drone": {"car_id": 6, "label": None, "mark_index": 4, "use_life": False},
-            }
-        else:
-            self.targets = {
-                "hero": {"car_id": 101, "label": "B1", "mark_index": 0},
-                "engineer": {"car_id": 102, "label": "B2", "mark_index": 1},
-                "drone": {"car_id": 106, "label": None, "mark_index": 4, "use_life": False},
-            }
 
         self.detected_labels = set()
         self.life_infos = {}
@@ -81,11 +69,36 @@ class Guess:
         rospy.Subscriber(self.result_topic, String, self.result_callback, queue_size=1)
         rospy.Subscriber(self.receiver_state_topic, String, self.receiver_state_callback, queue_size=20)
 
-    def _load_yaml(self, path):
-        with open(path, 'r', encoding='utf-8') as file:
-            return self.yaml.load(file) or {}
+    def _build_targets(self, color):
+        if color == "Blue":
+            return {
+                "hero": {"car_id": 1, "label": "R1", "mark_index": 0},
+                "engineer": {"car_id": 2, "label": "R2", "mark_index": 1},
+                "infantry_3": {"car_id": 3, "label": "R3", "mark_index": 2},
+                "infantry_4": {"car_id": 4, "label": "R4", "mark_index": 3},
+                "infantry_5": {"car_id": 5, "label": "R5", "mark_index": None},
+                "drone": {"car_id": 6, "label": None, "mark_index": 4, "use_life": False},
+                "sentinel": {"car_id": 7, "label": "R7", "mark_index": 5},
+            }
+        else:
+            return {
+                "hero": {"car_id": 101, "label": "B1", "mark_index": 0},
+                "engineer": {"car_id": 102, "label": "B2", "mark_index": 1},
+                "infantry_3": {"car_id": 103, "label": "B3", "mark_index": 2},
+                "infantry_4": {"car_id": 104, "label": "B4", "mark_index": 3},
+                "infantry_5": {"car_id": 105, "label": "B5", "mark_index": None},
+                "drone": {"car_id": 106, "label": None, "mark_index": 4, "use_life": False},
+                "sentinel": {"car_id": 107, "label": "B7", "mark_index": 5},
+            }
 
-    def _load_points(self, raw_points):
+    def _load_yaml(self, path):
+        try:
+            with open(path, 'r', encoding='utf-8') as file:
+                return self.yaml.load(file) or {}
+        except Exception:
+            return {}
+
+    def _load_points(self, raw_points, target_names):
         if isinstance(raw_points, list):
             merged = {}
             for item in raw_points:
@@ -96,15 +109,19 @@ class Guess:
             raw_points = {}
 
         points = {}
-        for name in ("hero", "engineer", "drone"):
+        for name in target_names:
             point_list = raw_points.get(name, [])
             if not isinstance(point_list, list):
                 point_list = []
-            points[name] = [
-                [float(point.get("x", 0.0)), float(point.get("y", 0.0))]
-                for point in point_list
-                if isinstance(point, dict)
-            ]
+            parsed_points = []
+            for point in point_list:
+                if not isinstance(point, dict):
+                    continue
+                try:
+                    parsed_points.append([float(point.get("x", 0.0)), float(point.get("y", 0.0))])
+                except (TypeError, ValueError):
+                    continue
+            points[name] = parsed_points
         return points
 
     def detect_callback(self, msg):
@@ -164,6 +181,8 @@ class Guess:
 
     def _target_marked(self, name):
         mark_index = self.targets[name]["mark_index"]
+        if mark_index is None:
+            return False
         if mark_index >= len(self.mark_progress):
             return False
         return bool(self.mark_progress[mark_index])
