@@ -37,8 +37,8 @@ class Receiver:
         self.state_pub = None
         self.state_seq = 0
         self.receiver_state = {
-            "is_activating_double_effect": False,
-            "my_health": [100, 100, 100, 100, 100, 0, 1500, 5000],
+            "enemy_is_activating_double_effect": False,
+            "my_health": [100, 100, 100, 100, 100, 0, 1500, 5000, 1500, 5000],
             "mark_progress": [0, 0, 0, 0, 0, 0],
             "have_double_effect_times": 0,
             "time_left": -1,
@@ -321,8 +321,8 @@ bit 9-15：保留
         # data是小端格式的
         dart_info_value = struct.unpack('<H', data[1:3])[0]
 
-        # 提取第 5-7 位的值
-        dart_target = (dart_info_value >> 5) & 0x03
+        # 提取第 6-8 位的值
+        dart_target = (dart_info_value >> 6) & 0x03
 
         self.logger.log(f"Dart target: {dart_target}")
         self.receiver_state["dart_target"] = int(dart_target)
@@ -348,8 +348,8 @@ bit 9-15：保留
 
     # 血量信息
     def parse_robot_status(self, data):
-        # 8 个 uint16_t：英雄、工程、步兵3、步兵4、保留、哨兵、前哨站、基地
-        hp_list = struct.unpack('<8H', data[:16])
+        # 8 个 uint16_t：英雄、工程、步兵3、步兵4、己方全队重伤害和对面总伤害之差、哨兵、前哨站、基地，对方前哨站，对方基地
+        hp_list = struct.unpack('<8H', data[:20])
         
         hp_values = [int(v) for v in hp_list]
         self.receiver_state["my_health"] = hp_values
@@ -390,9 +390,9 @@ bit 9-15：保留
         double_effect_chance = radar_info & 0x03
 
         # 提取位 2 作为双倍易伤激活状态
-        is_double_effect_active = (radar_info >> 2) & 0x01
+        enemy_is_double_effect_active = (radar_info >> 2) & 0x01
 
-        self.receiver_state["is_activating_double_effect"] = bool(is_double_effect_active)
+        self.receiver_state["enemy_is_activating_double_effect"] = bool(enemy_is_double_effect_active)
         self.receiver_state["have_double_effect_times"] = int(double_effect_chance)
 
         self.logger.log(f"Double effect chance: {double_effect_chance}, is double effect active: {is_double_effect_active}")
@@ -400,11 +400,11 @@ bit 9-15：保留
             "double_effect",
             {
                 "have_double_effect_times": int(double_effect_chance),
-                "is_activating_double_effect": bool(is_double_effect_active),
+                "is_activating_double_effect": bool(enemy_is_double_effect_active),
             },
         )
 
-        return double_effect_chance, is_double_effect_active
+        return double_effect_chance, enemy_is_double_effect_active
 
 
     def parse_interferance_status(self, data):

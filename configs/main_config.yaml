@@ -1,5 +1,5 @@
 global:
-  my_color: "Blue" # "Blue"
+  my_color: "Red" # "Blue"
   is_debug: True # False
 
 

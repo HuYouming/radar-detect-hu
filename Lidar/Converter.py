@@ -170,7 +170,7 @@ class Converter:
         height = self.vision_locator.get_height(camera_point)
         [x, y] = self.vision_locator.parser(camera_point)
         y += 15 # 平移坐标系
-        return [x, y, height + 0.15, t]
+        return [x, y, height + self.vision_locator.armor_height, t]
 
     def detection_main(self, box,t):
         '''

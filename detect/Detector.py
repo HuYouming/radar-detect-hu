@@ -13,7 +13,7 @@ import rospy
 from std_msgs.msg import String
 
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
-VIDEO_PATH = "/root/rm/radar-detect/data/shifan.mp4"
+VIDEO_PATH = "/root/rm/radar-detect/data/video.mp4"
 DETECTOR_CONFIG_PATH = "./configs/detector_config.yaml"
 CAMERA_CONFIG_PATH = "./configs/bin_cam_config.yaml"
 CAMERA_NAME = "new_cam"
