@@ -1,7 +1,7 @@
 params:
   max_depth: 20
-  width: 4024
-  height: 3036
+  width: 3088
+  height: 2064
 
 calib:
   extrinsic:

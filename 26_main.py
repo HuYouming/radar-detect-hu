@@ -34,11 +34,11 @@ def get_new_box(xyxy,xywh):
     if y > 2064 / 2:
         # 计算新的x1和y1
         new_x1 = x1+w/2
-        new_y1 = y1+h/2 + h/5 # 这里是为了更准确的定位车底盘位置
+        new_y1 = y1+h/2 + h/9 # 这里是为了更准确的定位车底盘位置
 
     else:
         new_x1 = x1+w/2
-        new_y1 = y1+h/2+h/7
+        new_y1 = y1+h/2+h/9
     return [new_x1,new_y1,new_x1,new_y1]
 
 

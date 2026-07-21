@@ -10,7 +10,7 @@ class Vision_Locator:
         :param intrinsic_matrix: 相机的内参矩阵 (4x4)
         :param extrinsic_matrix: 相机的外参矩阵 (4x4)
         """
-        self.armor_height = 0.15
+        self.armor_height = 0.1
         self.K = intrinsic_matrix
         self.dist_coeffs = dist_coeffs
 

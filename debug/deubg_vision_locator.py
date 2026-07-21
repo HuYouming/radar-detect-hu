@@ -24,7 +24,7 @@ CALIBRATION_POINT_NAMES = [
     "enemy_Tower_25",
     "self_FORTRESS",
     "self_Tower_25",
-    "enemy_FORTREES_RIGHT_FRONT",
+    "enemy_HERO_HIGH",
 ]
 
 
@@ -87,7 +87,7 @@ def pick_five_points(image):
 
 
 def solve_field_to_camera(converter, pixel_points):
-    world_points = np.array(converter.real_points_25, dtype=np.float32)
+    world_points = np.array(converter.real_points_26, dtype=np.float32)
     ok, rotation_vector, translation_vector = cv2.solvePnP(
         world_points,
         pixel_points,

@@ -476,7 +476,7 @@ class Detector:
             conf = conf_list[i]
             track_id = id_list[i]
             box = box_list[i]
-            x,y,h,w = box
+            x,y,w,h = box
 
             status = 0 # normal
 

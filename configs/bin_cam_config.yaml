@@ -4,8 +4,8 @@ set:
   roll: 3.0
 
 param:
-  Width: 4024 # 1280
-  Height: 3000 # 640
+  Width: 3088 # 1280
+  Height: 2064 # 640
   OffsetY: 0 # 384
   ExposureTime: 10000.0 # 64000. .100000. 33000室内 # 增益呢23
   GammaEnable: True # True False4
