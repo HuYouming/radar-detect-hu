@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import time
 
@@ -14,8 +15,9 @@ guess文件作为一个独立的节点，用来猜点
 
 读取yaml文件中的点
 
-按照以下逻辑进行踩点，如果detect没有检测到，且相对应的生命周期也变成了0
-则相对应车猜点传入/guess/point中，供其他节点使用，猜的点是根据yaml文件中的点进行的，猜点的顺序是按照yaml文件中的顺序进行的
+按照以下逻辑进行猜点，如果detect没有检测到，且相对应的生命周期也变成了0
+则相对应车猜点传入/guess/point中，供其他节点使用，猜的点来自yaml候选点，
+猜点顺序根据目标消失前的赛场位置和速度进行评分排序
 同时开始计时，如果一个点猜了4s之后标志位没有变成1，则认为这个点猜错了，继续猜下一个点，如此循环
 途中如果detect检测到了相对应的车，则停止猜点，如果满足上述的条件，就重新开始猜点，循环这个过程
 
@@ -40,17 +42,32 @@ class Guess:
         self.color = self.main_yaml.get('global', {}).get('my_color', 'Red')
         self.targets = self._build_targets(self.color)
         self.points = self._load_points(self.guess_yaml.get(self.color, {}), self.targets.keys())
+        self.d_factor = float(self.guess_yaml.get("d_factor", 0.01))
+        self.cos_factor = float(self.guess_yaml.get("cos_factor", 0.003))
         self.seq = 0
         self.timeout_sec = 4.0
 
         self.detected_labels = set()
         self.life_infos = {}
+        self.target_motion = {
+            name: {
+                "last_pos": None,
+                "last_time": 0.0,
+                "velocity": [0.0, 0.0],
+            }
+            for name in self.targets
+        }
+        self.car_id_to_name = {
+            target["car_id"]: name
+            for name, target in self.targets.items()
+        }
         self.mark_progress = [0, 0, 0, 0, 0, 0]
         self.state = {
             name: {
                 "active": False,
                 "confirmed": False,
                 "point_index": 0,
+                "candidate_order": [],
                 "point_start": 0.0,
             }
             for name in self.targets
@@ -61,12 +78,14 @@ class Guess:
         communication_cfg = self.main_yaml.get('communication', {})
         self.detect_topic = detector_ros_cfg.get('detect_topic', '/vision/detect')
         self.result_topic = detector_ros_cfg.get('result_topic', '/vision/result')
+        self.state_topic = self.main_yaml.get('messager', {}).get('state_topic', '/messager/state')
         self.receiver_state_topic = communication_cfg.get('receiver_state_topic', '/receiver/state')
         self.guess_topic = communication_cfg.get('guess_topic', '/guess/point')
 
         self.pub = rospy.Publisher(self.guess_topic, String, queue_size=1)
         rospy.Subscriber(self.detect_topic, String, self.detect_callback, queue_size=1)
         rospy.Subscriber(self.result_topic, String, self.result_callback, queue_size=1)
+        rospy.Subscriber(self.state_topic, String, self.vision_state_callback, queue_size=1)
         rospy.Subscriber(self.receiver_state_topic, String, self.receiver_state_callback, queue_size=20)
 
     def _build_targets(self, color):
@@ -156,6 +175,43 @@ class Guess:
         if life_infos:
             self.life_infos = life_infos
 
+    def vision_state_callback(self, msg):
+        try:
+            payload = json.loads(msg.data)
+        except json.JSONDecodeError:
+            return
+
+        life_infos = {}
+        for info in payload.get("car_life_infos", []):
+            try:
+                car_id = int(info.get("car_id"))
+            except (TypeError, ValueError, AttributeError):
+                continue
+            life_infos[car_id] = {
+                "life_span": int(info.get("life_span", 0)),
+                "trust": bool(info.get("trust", False)),
+            }
+        if life_infos:
+            self.life_infos = life_infos
+
+        stamp = float(payload.get("stamp", time.time()))
+        for car_info in payload.get("enemy_car_infos", []) + payload.get("our_car_infos", []):
+            if not isinstance(car_info, list) or len(car_info) < 7:
+                continue
+            try:
+                car_id = int(car_info[1])
+                field_xyz = car_info[4]
+                is_valid = bool(car_info[6])
+            except (TypeError, ValueError):
+                continue
+            if car_id not in self.car_id_to_name or not is_valid:
+                continue
+            if not isinstance(field_xyz, list) or len(field_xyz) < 2:
+                continue
+
+            name = self.car_id_to_name[car_id]
+            self._update_target_motion(name, [float(field_xyz[0]), float(field_xyz[1])], stamp)
+
     def receiver_state_callback(self, msg):
         try:
             payload = json.loads(msg.data)
@@ -191,8 +247,59 @@ class Guess:
         points = self.points.get(name, [])
         if not points:
             return [0.0, 0.0]
-        point_index = self.state[name]["point_index"] % len(points)
+        candidate_order = self.state[name].get("candidate_order") or list(range(len(points)))
+        rank_index = self.state[name]["point_index"] % len(candidate_order)
+        point_index = candidate_order[rank_index] % len(points)
         return points[point_index]
+
+    def _update_target_motion(self, name, position, stamp):
+        motion = self.target_motion[name]
+        last_pos = motion["last_pos"]
+        last_time = motion["last_time"]
+        if last_pos is not None:
+            dt = max(1e-3, stamp - last_time)
+            motion["velocity"] = [
+                (position[0] - last_pos[0]) / dt,
+                (position[1] - last_pos[1]) / dt,
+            ]
+        motion["last_pos"] = position
+        motion["last_time"] = stamp
+
+    def _rank_candidate_indices(self, name):
+        points = self.points.get(name, [])
+        if not points:
+            return []
+
+        motion = self.target_motion[name]
+        last_pos = motion["last_pos"]
+        velocity = motion["velocity"]
+        if last_pos is None:
+            return list(range(len(points)))
+
+        vx, vy = velocity
+        v_norm = math.sqrt(vx ** 2 + vy ** 2)
+        scored = []
+        for index, point in enumerate(points):
+            dx = point[0] - last_pos[0]
+            dy = point[1] - last_pos[1]
+            distance = math.sqrt(dx ** 2 + dy ** 2)
+            if v_norm > 1e-6 and distance > 1e-6:
+                cos_sim = (vx * dx + vy * dy) / (v_norm * distance)
+            else:
+                cos_sim = 0.0
+            distance_score = math.exp(-distance * self.d_factor)
+            score = self.cos_factor * cos_sim + (1.0 - self.cos_factor) * distance_score
+            scored.append((index, score))
+
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return [index for index, _ in scored]
+
+    def _start_guess(self, name, target_state, now):
+        target_state["active"] = True
+        target_state["confirmed"] = False
+        target_state["point_index"] = 0
+        target_state["candidate_order"] = self._rank_candidate_indices(name)
+        target_state["point_start"] = now
 
     def _step_target(self, name, now):
         target_state = self.state[name]
@@ -204,6 +311,8 @@ class Guess:
             target_state["active"] = False
             target_state["confirmed"] = False
             target_state["point_start"] = 0.0
+            target_state["point_index"] = 0
+            target_state["candidate_order"] = []
             return
 
         if target_state["active"] and target_marked:
@@ -214,12 +323,11 @@ class Guess:
             return
 
         if not target_state["active"]:
-            target_state["active"] = True
-            target_state["point_start"] = now
+            self._start_guess(name, target_state, now)
             return
 
         if now - target_state["point_start"] >= self.timeout_sec:
-            point_count = max(len(self.points.get(name, [])), 1)
+            point_count = max(len(target_state.get("candidate_order") or self.points.get(name, [])), 1)
             target_state["point_index"] = (target_state["point_index"] + 1) % point_count
             target_state["point_start"] = now
 
@@ -237,6 +345,8 @@ class Guess:
                 "active": self.state[name]["active"],
                 "confirmed": self.state[name]["confirmed"],
                 "point_index": self.state[name]["point_index"],
+                "candidate_order": self.state[name].get("candidate_order", []),
+                "velocity": self.target_motion[name]["velocity"],
             })
 
         payload = {

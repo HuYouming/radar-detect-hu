@@ -8,6 +8,12 @@ ctrl:
 
 car:
   life_span: 20 # 20帧若未刷新则认为不可信
+  field_filter:
+    enabled: true
+    q_std: 2.0 # 参考 RM2025 KalmanFilter2d，过程噪声标准差，越大越跟随测量
+    r_std: 1.0 # 参考 RM2025 KalmanFilter2d，测量噪声标准差，越大越平滑
+    dt: 0.1 # 默认预测周期，实际运行时会用两次更新之间的真实dt覆盖
+    outlier_threshold: 1.5 # 参考 RM2025 OUTLIER_THRESHOLD，单位m，超过则拒绝本次测量
 
 lidar:
   height_threshold: 5.5 # 还没有量，激光雷达如果点比负1.4小，则认为在地面，不要

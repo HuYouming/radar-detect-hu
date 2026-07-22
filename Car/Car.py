@@ -1,13 +1,95 @@
 # 定义Car类和CarList类
 import threading
+import time
+
+import cv2
+import numpy as np
 
 
 # 检测类为主线程，Lidar类通过ros不断接收雷达数据是子线程，主线程detect中目标检测完毕从子线程中获取雷达数据，进行坐标解算，写入CarList类中
 # 决策与通信为子线程从CarList类中获取信息，进行决策解算后统一发信
 
+
+class FieldKalmanFilter2D:
+    """
+    赛场平面坐标滤波器，参数参考 RM2025-Radar-Algorithm 的 KalmanFilter2d：
+    q_std=2.0, r_std=1.0, dt=0.1。
+    """
+
+    def __init__(self, q_std=2.0, r_std=1.0, dt=0.1):
+        self.q_std = float(q_std)
+        self.r_std = float(r_std)
+        self.dt = float(dt)
+        self.kf = cv2.KalmanFilter(4, 2)
+        self.kf.measurementMatrix = np.array(
+            [[1, 0, 0, 0],
+             [0, 1, 0, 0]],
+            dtype=np.float32
+        )
+        self.kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * (self.r_std ** 2)
+        self.initialized = False
+        self.reset()
+
+    def _update_transition_and_process_noise(self, dt):
+        self.kf.transitionMatrix = np.array(
+            [[1, 0, dt, 0],
+             [0, 1, 0, dt],
+             [0, 0, 1, 0],
+             [0, 0, 0, 1]],
+            dtype=np.float32
+        )
+        self.kf.processNoiseCov = np.array(
+            [[dt ** 4 / 4, 0, dt ** 3 / 2, 0],
+             [0, dt ** 4 / 4, 0, dt ** 3 / 2],
+             [dt ** 3 / 2, 0, dt ** 2, 0],
+             [0, dt ** 3 / 2, 0, dt ** 2]],
+            dtype=np.float32
+        ) * (self.q_std ** 2)
+
+    def reset(self, initial_pos=None):
+        self._update_transition_and_process_noise(self.dt)
+        self.kf.statePost = np.zeros((4, 1), dtype=np.float32)
+        self.kf.statePre = np.zeros((4, 1), dtype=np.float32)
+        if initial_pos is not None:
+            self.kf.statePost[0, 0] = float(initial_pos[0])
+            self.kf.statePost[1, 0] = float(initial_pos[1])
+            self.kf.statePre[:] = self.kf.statePost
+            self.initialized = True
+        else:
+            self.initialized = False
+        self.kf.errorCovPost = np.eye(4, dtype=np.float32) * 100.0
+        self.kf.errorCovPre = self.kf.errorCovPost.copy()
+
+    def predict(self, dt=None):
+        if dt is None:
+            dt = self.dt
+        self._update_transition_and_process_noise(float(dt))
+        prediction = self.kf.predict()
+        self.kf.statePost = self.kf.statePre.copy()
+        self.kf.errorCovPost = self.kf.errorCovPre.copy()
+        return [float(prediction[0, 0]), float(prediction[1, 0])]
+
+    def update(self, pos):
+        if not self.initialized:
+            self.reset(pos)
+            return self.get_position()
+        measurement = np.array([[np.float32(pos[0])], [np.float32(pos[1])]])
+        corrected = self.kf.correct(measurement)
+        return [float(corrected[0, 0]), float(corrected[1, 0])]
+
+    def get_position(self):
+        state = self.kf.statePost
+        return [float(state[0, 0]), float(state[1, 0])]
+
+    def get_velocity(self):
+        state = self.kf.statePost
+        return [float(state[2, 0]), float(state[3, 0])]
+
+
 # Car类，单个车辆的信息，有R1-R5，R7，B1-B5，B7
 class Car:
-    def __init__(self, car_id , life_span_init = 20):
+    def __init__(self, car_id , life_span_init = 20, filter_config=None):
+        filter_config = filter_config or {}
         # 主键 , 依照串口通信协议，车辆ID
         self.car_id = car_id
         # 此车颜色 , 可以直接由car_id计算
@@ -23,6 +105,17 @@ class Car:
         # 赛场坐标系下的坐标
         self.field_xyz = [] # 赛场坐标系下的三维坐标 , 单位是m
         self.field_xy = [] # 赛场坐标系下的二维坐标 , 单位是m , float
+        self.field_xy_velocity = [] # 赛场坐标系下的二维速度估计 , 单位是m/s , float
+        self.field_filter_enabled = bool(filter_config.get("enabled", True))
+        self.field_filter_outlier_threshold = float(filter_config.get("outlier_threshold", 1.5))
+        self.field_filter_last_update_time = None
+        self.field_filter = FieldKalmanFilter2D(
+            q_std=float(filter_config.get("q_std", 2.0)),
+            r_std=float(filter_config.get("r_std", 1.0)),
+            dt=float(filter_config.get("dt", 0.1)),
+        )
+        self.last_field_measurement = []
+        self.last_field_measurement_rejected = False
         # 当前信息可信生命周期,每次图像检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则初始化所有解算信息
         self.life_span_max = life_span_init # 最大生命周期
         self.life_span = 0 # 当前生命周期，每次检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则认为车辆信息不可信，但是不初始化，只是不发给哨兵，但是还是发给裁判系统
@@ -46,9 +139,45 @@ class Car:
 
     # 写入赛场坐标系下的三维坐标
     def set_field_xyz(self, xyz):
-        # TODO：超范围判断
-        self.field_xyz = xyz
-        self.field_xy = [xyz[0], xyz[1]]
+        if xyz is None or len(xyz) < 2:
+            self.field_xyz = []
+            self.field_xy = []
+            self.field_xy_velocity = []
+            self.last_field_measurement_rejected = False
+            return
+
+        measurement_xy = [float(xyz[0]), float(xyz[1])]
+        self.last_field_measurement = measurement_xy
+        z = float(xyz[2]) if len(xyz) > 2 else 0.0
+
+        if not self.field_filter_enabled:
+            self.field_xyz = [measurement_xy[0], measurement_xy[1], z]
+            self.field_xy = measurement_xy
+            self.field_xy_velocity = []
+            self.last_field_measurement_rejected = False
+            return
+
+        now = time.time()
+        if self.field_filter_last_update_time is None or not self.field_filter.initialized:
+            self.field_filter.reset(measurement_xy)
+            filtered_xy = self.field_filter.get_position()
+            self.field_filter_last_update_time = now
+            self.last_field_measurement_rejected = False
+        else:
+            dt = max(1e-3, now - self.field_filter_last_update_time)
+            predicted_xy = self.field_filter.predict(dt)
+            distance = np.linalg.norm(np.array(measurement_xy) - np.array(predicted_xy))
+            if distance <= self.field_filter_outlier_threshold:
+                filtered_xy = self.field_filter.update(measurement_xy)
+                self.last_field_measurement_rejected = False
+            else:
+                filtered_xy = predicted_xy
+                self.last_field_measurement_rejected = True
+            self.field_filter_last_update_time = now
+
+        self.field_xy_velocity = self.field_filter.get_velocity()
+        self.field_xyz = [filtered_xy[0], filtered_xy[1], z]
+        self.field_xy = [filtered_xy[0], filtered_xy[1]]
 
 
 
@@ -62,6 +191,10 @@ class Car:
         # self.camera_xyz = []
         # self.field_xyz = []
         # self.field_xy = []
+        self.field_filter.reset()
+        self.field_filter_last_update_time = None
+        self.field_xy_velocity = []
+        self.last_field_measurement_rejected = False
         self.trust = False
 
     # 如果本帧没有检测此车，生命周期减一
@@ -122,22 +255,23 @@ class CarList:
         self.sentinel_min_alert_distance = 0.1 # 最近预警距离
         self.sentinel_max_alert_distance = 8.0 # 最远预警距离
         self.life_span = cfg["car"]["life_span"] # 车辆信息可信生命周期
+        self.field_filter_config = cfg["car"].get("field_filter", {})
         self.RedCarsID = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5 , 7:7} # 红方车辆序号和车辆ID的对应关系
         self.BlueCarsID = {1: 101, 2: 102, 3: 103, 4: 104, 5: 105 , 7:107} # 蓝方车辆序号和车辆ID的对应关系
         self.label2ID = {"R1":1, "R2":2, "R3":3, "R4":4, "R5":5, "R7":7, "B1":101, "B2":102, "B3":103, "B4":104, "B5":105, "B7":107}
         # 初始化车辆信息
-        self.cars = {self.RedCarsID[1]: Car(self.RedCarsID[1], self.life_span),
-                     self.RedCarsID[2]: Car(self.RedCarsID[2], self.life_span),
-                     self.RedCarsID[3]: Car(self.RedCarsID[3], self.life_span),
-                     self.RedCarsID[4]: Car(self.RedCarsID[4], self.life_span),
-                     self.RedCarsID[5]: Car(self.RedCarsID[5], self.life_span),
-                     self.RedCarsID[7]: Car(self.RedCarsID[7], self.life_span),
-                     self.BlueCarsID[1]: Car(self.BlueCarsID[1], self.life_span),
-                     self.BlueCarsID[2]: Car(self.BlueCarsID[2], self.life_span),
-                     self.BlueCarsID[3]: Car(self.BlueCarsID[3], self.life_span),
-                     self.BlueCarsID[4]: Car(self.BlueCarsID[4], self.life_span),
-                     self.BlueCarsID[5]: Car(self.BlueCarsID[5], self.life_span),
-                     self.BlueCarsID[7]: Car(self.BlueCarsID[7], self.life_span)}
+        self.cars = {self.RedCarsID[1]: Car(self.RedCarsID[1], self.life_span, self.field_filter_config),
+                     self.RedCarsID[2]: Car(self.RedCarsID[2], self.life_span, self.field_filter_config),
+                     self.RedCarsID[3]: Car(self.RedCarsID[3], self.life_span, self.field_filter_config),
+                     self.RedCarsID[4]: Car(self.RedCarsID[4], self.life_span, self.field_filter_config),
+                     self.RedCarsID[5]: Car(self.RedCarsID[5], self.life_span, self.field_filter_config),
+                     self.RedCarsID[7]: Car(self.RedCarsID[7], self.life_span, self.field_filter_config),
+                     self.BlueCarsID[1]: Car(self.BlueCarsID[1], self.life_span, self.field_filter_config),
+                     self.BlueCarsID[2]: Car(self.BlueCarsID[2], self.life_span, self.field_filter_config),
+                     self.BlueCarsID[3]: Car(self.BlueCarsID[3], self.life_span, self.field_filter_config),
+                     self.BlueCarsID[4]: Car(self.BlueCarsID[4], self.life_span, self.field_filter_config),
+                     self.BlueCarsID[5]: Car(self.BlueCarsID[5], self.life_span, self.field_filter_config),
+                     self.BlueCarsID[7]: Car(self.BlueCarsID[7], self.life_span, self.field_filter_config)}
         # 对CarList实例多线程锁，为了尽量减少上锁时间，把数据处理好再写入公共区域
         self.lock = threading.Lock()
         print(self.cars[self.BlueCarsID[1] if self.my_color == "Blue" else self.RedCarsID[1]].get_field_xyz())
@@ -158,9 +292,8 @@ class CarList:
                     car.set_track_info(track_id, conf, xywh)
                     car.set_camera_xyz(camera_xyz)
                     car.set_field_xyz(field_xyz)
-                    print("xyz:",car.set_field_xyz(field_xyz))
                     car.life_span = car.life_span_max # 重置生命周期
-                car.life_up() # 刷新的车辆生命周期先+1
+                    car.life_up() # 刷新的车辆生命周期先+1
             # 对所有车辆生命周期减一,这样没有刷新的车辆生命周期减一
             for car in self.cars.values():
                 # print("life down",car.life_span)
