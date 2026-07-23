@@ -246,14 +246,6 @@ class CarList:
     def __init__(self , cfg):
         # 配置文件
         self.my_color = cfg["global"]["my_color"] # 我方颜色 , "Red" or "Blue"
-        if self.my_color == "Red":
-            self.sentinel_id = 7
-            self.enemy_ids = [101, 102, 103, 104, 105, 107]
-        else:
-            self.sentinel_id = 107
-            self.enemy_ids = [1, 2, 3, 4, 5, 7]
-        self.sentinel_min_alert_distance = 0.1 # 最近预警距离
-        self.sentinel_max_alert_distance = 8.0 # 最远预警距离
         self.life_span = cfg["car"]["life_span"] # 车辆信息可信生命周期
         self.field_filter_config = cfg["car"].get("field_filter", {})
         self.RedCarsID = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5 , 7:7} # 红方车辆序号和车辆ID的对应关系
@@ -335,24 +327,6 @@ class CarList:
                     "life_span_max": car.life_span_max,
                     "trust": car.trust,
                 })
-        return results
-
-    # 简易辅助哨兵决策测试用，获取图像坐标系下我方哨兵(7号车）和敌方车辆的中心点信息,返回results
-    # result:[sentinel_xy , enemy_infos] , sentinel_xy:[sentinel_x,sentinel_y] , 归一化
-    # enemy_info in enemy_infos:[enemy_id , center_x , center_y] # enemy_id为1-5,7 或101-105,107
-    def get_center_info(self):
-        results = []
-        sentinel_id = self.sentinel_id
-        enemy_ids = self.enemy_ids
-        with self.lock:
-            sentinel = self.get_car_by_id(sentinel_id)
-            sentinel_xy = sentinel.get_center()
-            enemy_infos = []
-            for enemy_id in enemy_ids:
-                enemy = self.get_car_by_id(enemy_id)
-                enemy_infos.append([enemy_id, enemy.get_center()])
-            results = [sentinel_xy, enemy_infos]
-
         return results
 
     # 由标签获取车ID，如输入"R1”，返回1

@@ -160,7 +160,7 @@ data: "ready"
 }
 ```
 
-作用：主程序把重投影点、哨兵预警文字、调试线段等返回给 Detector，由 Detector 在对应缓存帧上绘制。
+作用：主程序把重投影点和其他调试图元返回给 Detector，由 Detector 在对应缓存帧上绘制。
 
 ### `/messager/state`
 
@@ -177,8 +177,7 @@ data: "ready"
   "vision_seq": 18,
   "vision_stamp": 1720000000.123,
   "enemy_car_infos": [],
-  "our_car_infos": [],
-  "sentinel_alert_info": [101, 3.25, 2]
+  "our_car_infos": []
 }
 ```
 
@@ -193,12 +192,6 @@ data: "ready"
 | `4` | 赛场坐标 `field_xyz` |
 | `5` | 颜色 |
 | `6` | `is_valid` |
-
-`sentinel_alert_info` 格式：
-
-```text
-[car_id, distance, quadrant]
-```
 
 ### `/receiver/state`
 
@@ -496,8 +489,6 @@ communication:
 | `sentry_perception` | 哨兵全局感知的敌方 6 车位置。 |
 | `enemy_hp` | 敌方 5 个血量。 |
 | `double_effect_decision` | 双倍易伤决策次数和密钥/分析结果。 |
-| `sentinel_alert` | 哨兵预警车辆 ID、距离、象限。 |
-| `hero_alert` | 英雄预警开关。 |
 | `double_effect_times_to_car` | 给己方车辆同步双倍易伤次数。 |
 
 ## 外部输入 Topic

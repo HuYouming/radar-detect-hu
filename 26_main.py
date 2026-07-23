@@ -100,7 +100,7 @@ class MessagerStatePublisher:
         self.state_pub = rospy.Publisher(state_topic, String, queue_size=1)
         self.seq = 0
 
-    def publish(self, enemy_car_infos, our_car_infos, sentinel_alert_info, car_life_infos, vision_seq, vision_stamp):
+    def publish(self, enemy_car_infos, our_car_infos, car_life_infos, vision_seq, vision_stamp):
         payload = {
             "seq": self.seq,
             "stamp": time.time(),
@@ -108,7 +108,6 @@ class MessagerStatePublisher:
             "vision_stamp": vision_stamp,
             "enemy_car_infos": to_builtin(enemy_car_infos),
             "our_car_infos": to_builtin(our_car_infos),
-            "sentinel_alert_info": to_builtin(sentinel_alert_info),
             "car_life_infos": to_builtin(car_life_infos),
         }
         self.state_pub.publish(String(data=json.dumps(payload, separators=(',', ':'))))
@@ -141,15 +140,6 @@ def add_circle(draw_payload, center, radius=5, color=(0, 0, 255), thickness=-1):
     draw_payload["circles"].append({
         "center": [int(center[0]), int(center[1])],
         "radius": radius,
-        "color": list(color),
-        "thickness": thickness,
-    })
-
-
-def add_line(draw_payload, p1, p2, color=(0, 255, 122), thickness=2):
-    draw_payload["lines"].append({
-        "p1": [int(p1[0]), int(p1[1])],
-        "p2": [int(p2[0]), int(p2[1])],
         "color": list(color),
         "thickness": thickness,
     })
@@ -301,9 +291,7 @@ if __name__ == '__main__':
             all_infos = carList.get_all_info() # 此步不做trust的筛选，留给messager做
             my_car_infos = []
             enemy_car_infos = []
-            sentinel_alert_info = []
             # result in results:[car_id , center_xy , camera_xyz , field_xyz]
-            # 如果是我方车辆，找到所有敌方车辆，计算与每一台敌方车辆距离，并在图像两车辆中心点之间画线，线上写距离
             for all_info in all_infos:
                 track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
                 # 将信息分两个列表存储
@@ -317,61 +305,10 @@ if __name__ == '__main__':
                         # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
                         all_detections.append([frame_id] + list(all_info))
 
-            # 画线
-            for my_car_info in my_car_infos:
-                my_track_id , my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color , my_is_valid= my_car_info
-            # 将相机的xyz坐标点投影到图像上，并画一个红色的点
-
-                if my_car_id == carList.sentinel_id and my_is_valid:
-                    my_reprojected_point = None
-                    if len(my_camera_xyz) == 3:
-                        my_camera_xyz_arr = np.array(my_camera_xyz, dtype=np.float64).reshape(1, 3)
-                        my_reprojected_point = converter.camera_to_image(my_camera_xyz_arr)[0]
-                    # 记录符合距离要求的距离最近的车
-                    min_distance_car_id = -1
-                    min_distance = 1000
-                    min_distance_angle = -1
-                    for enemy_car_info in enemy_car_infos:
-                        enemy_track_id , enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color , enemy_is_valid= enemy_car_info
-                    # 如果不可信，跳过
-                        if not enemy_is_valid or enemy_track_id == -1: # 不可信或未初始化
-                            continue
-                        # 计算距离
-                        distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
-                    # 将相机的xyz坐标点投影到图像上，并画一个红色的点
-                        enemy_reprojected_point = None
-                        if len(enemy_camera_xyz) == 3:
-                            enemy_camera_xyz_arr = np.array(enemy_camera_xyz, dtype=np.float64).reshape(1, 3)
-                            enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz_arr)[0]  # u,v是图像坐标系下的坐标
-                        if is_debug and my_reprojected_point is not None and enemy_reprojected_point is not None:
-                            add_circle(draw_payload, my_reprojected_point)
-                            add_circle(draw_payload, enemy_reprojected_point)
-                            add_line(draw_payload, my_reprojected_point, enemy_reprojected_point)
-                    # 判断距离是否符合
-                        if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
-                            continue
-
-                        if distance < min_distance:
-                        # 计算角度，设赛场x轴正方向为0度，顺时针为正
-                            angle = np.arctan2(enemy_field_xyz[1] - my_field_xyz[1], enemy_field_xyz[0] - my_field_xyz[0]) * 180 / np.pi
-                            min_distance = distance
-                            min_distance_angle = angle
-                            min_distance_car_id = enemy_car_id
-                    # 在哨兵重投影点上写上最近预警车辆的id，距离和角度
-                    if min_distance_car_id != -1:
-                        if is_debug and my_reprojected_point is not None:
-                            add_text(draw_payload, "id: {}".format(min_distance_car_id), (my_reprojected_point[0], my_reprojected_point[1] - 10))
-                            add_text(draw_payload, "angle: {:.2f}".format(min_distance_angle), (my_reprojected_point[0], my_reprojected_point[1] + 10))
-                        # 将角度转为象限 ， carID , distance , quadrant
-                        quadrant = converter.angle_to_quadrant(min_distance_angle)
-                        # zip
-                        sentinel_alert_info = [min_distance_car_id, min_distance, quadrant]
-
             if messager_enabled:
                 messager_state_pub.publish(
                     enemy_car_infos,
                     my_car_infos,
-                    sentinel_alert_info,
                     draw_payload["car_life_infos"],
                     vision_buffer.get_seq(),
                     vision_buffer.get_stamp(),

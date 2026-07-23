@@ -183,27 +183,6 @@ class Converter:
         '''
         return self.camera_results(box,t)
 
-###-------------------------------------2025---------------------------------------###
-
-    # 将角度转为象限 , -22.5-22.5为0,顺时针22.5-67.5为1，以此类推
-    def angle_to_quadrant(self, angle):
-        if -22.5 <= angle < 22.5:
-            return 0
-        if 22.5 <= angle < 67.5:
-            return 1
-        if 67.5 <= angle < 112.5:
-            return 2
-        if 112.5 <= angle < 157.5:
-            return 3
-        if angle >= 157.5 or angle < -157.5:
-            return 4
-        if -157.5 <= angle < -112.5:
-            return 5
-        if -112.5 <= angle < -67.5:
-            return 6
-        if -67.5 <= angle < -22.5:
-            return 7
-
     def camera_to_image(self, pc):  # 传入相机坐标系点，返回图像坐标系下的u,v和z
         # 相机坐标系下的点云批量乘以内参矩阵，得到图像坐标系下的u,v和z,类似于深度图的生成
 

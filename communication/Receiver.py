@@ -23,9 +23,6 @@ class Receiver:
         self.enabled = cfg.get('communication', {}).get('enabled', True)
         self.port = cfg['communication'].get('port', '/dev/ttyUSB0')
         self.state_topic = cfg['communication'].get('receiver_state_topic', '/receiver/state')
-        self.send_double_flag = 0 # 初始是0
-        self.send_double_count_1 = 0 # 防止单次错误信息，计数
-        self.send_double_count_2 = 0  # 防止单次错误信息，计数
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']
         self.ser = None
@@ -33,11 +30,10 @@ class Receiver:
             self.ser = serial.Serial(self.port, self.bps, timeout=self.timex)
         else:
             print('通信串口已禁用，Receiver 不打开串口')
-        self.fps = 100 # 控制主线程帧率为100Hz
         self.state_pub = None
         self.state_seq = 0
         self.receiver_state = {
-            "enemy_is_activating_double_effect": False,
+            "is_activating_double_effect": False,
             "my_health": [100, 100, 100, 100, 100, 0, 1500, 5000, 1500, 5000],
             "mark_progress": [0, 0, 0, 0, 0, 0],
             "have_double_effect_times": 0,
@@ -101,15 +97,7 @@ class Receiver:
             0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78,
         ]
         
-        self.udp_receiver = None
-        self.udp_enabled = False
-        # 数据存储
-        self.time_left = -1 # 剩余时间
-        self.already_send_double_effect = 0 # 是否已经发送了双倍概率
-        self.dart_target = 0 #飞镖目标
-
         self.working_flag = False
-        self.last_time_main_loop = time.time() # 保持一秒一帧
 
     def _init_ros_publisher(self):
         try:
@@ -289,7 +277,7 @@ class Receiver:
                 self.parse_mark_process(data)
             elif cmd_id_value == 0x020E:
                 self.parse_double_effect(data)
-                self.parse_interferance_status(data)
+                self.parse_interference_status(data)
             elif cmd_id_value == 0x0105: # 飞镖目标
                 self.parse_dart_target(data)
             elif cmd_id_value == 0x0301:
@@ -312,23 +300,23 @@ bit 0-2：
 基地固定目标，3为击中基地随机目标 
 bit3-5： 
 对方最近被击中的目标累计被击中计数，开局默认为0，至多为4 
-bit 6-8： 
-飞镖此时选定的击打目标，开局默认或未选定/选定前哨站时为0，选中基
-地固定目标为1，选中基地随机目标为2 
-bit 9-15：保留
+bit 6-7：飞镖当前选定目标，取值范围为 0-3
+bit 8-15：保留
     '''
     def parse_dart_target(self,data):
+        if len(data) < 3:
+            self.logger.log(f"Dart target data too short: {len(data)} bytes")
+            return None
         # data是小端格式的
         dart_info_value = struct.unpack('<H', data[1:3])[0]
 
-        # 提取第 6-8 位的值
+        # bit 6-7，合法值为 0、1、2、3
         dart_target = (dart_info_value >> 6) & 0x03
 
         self.logger.log(f"Dart target: {dart_target}")
         self.receiver_state["dart_target"] = int(dart_target)
         self.publish_state("dart_target", {"dart_target": int(dart_target)})
-
-
+        return dart_target
     # 比赛进行时间时间解析
     def process_game_status(self, data):
         # data[0]: 1 字节（类型 + 阶段）
@@ -342,14 +330,13 @@ bit 9-15：保留
             self.logger.log(f"Stage: {game_stage}, Time left: {time_left}")
             self.publish_state("game_status", {"game_stage": int(game_stage), "time_left": int(time_left)})
 
-    # 获取比赛剩余时间
-    def get_time_left(self):
-        return self.receiver_state["time_left"]
-
     # 血量信息
     def parse_robot_status(self, data):
-        # 8 个 uint16_t：英雄、工程、步兵3、步兵4、己方全队重伤害和对面总伤害之差、哨兵、前哨站、基地，对方前哨站，对方基地
-        hp_list = struct.unpack('<8H', data[:20])
+        if len(data) < 20:
+            self.logger.log(f"Robot HP data too short: {len(data)} bytes")
+            return None
+        # 10 个 uint16_t：英雄、工程、步兵3、步兵4、伤害差、哨兵、前哨站、基地、对方前哨站、对方基地
+        hp_list = struct.unpack('<10H', data[:20])
         
         hp_values = [int(v) for v in hp_list]
         self.receiver_state["my_health"] = hp_values
@@ -384,15 +371,18 @@ bit 9-15：保留
         :param data: 从串口接收到的原始数据。
         :return: 一个包含双倍易伤机会和双倍易伤是否激活的元组。
         """
+        if not data:
+            self.logger.log("Double effect data is empty")
+            return None
         radar_info = data[0]
 
         # 提取位 0-1 作为双倍易伤机会
         double_effect_chance = radar_info & 0x03
 
         # 提取位 2 作为双倍易伤激活状态
-        enemy_is_double_effect_active = (radar_info >> 2) & 0x01
+        is_double_effect_active = (radar_info >> 2) & 0x01
 
-        self.receiver_state["enemy_is_activating_double_effect"] = bool(enemy_is_double_effect_active)
+        self.receiver_state["is_activating_double_effect"] = bool(is_double_effect_active)
         self.receiver_state["have_double_effect_times"] = int(double_effect_chance)
 
         self.logger.log(f"Double effect chance: {double_effect_chance}, is double effect active: {is_double_effect_active}")
@@ -400,17 +390,20 @@ bit 9-15：保留
             "double_effect",
             {
                 "have_double_effect_times": int(double_effect_chance),
-                "is_activating_double_effect": bool(enemy_is_double_effect_active),
+                "is_activating_double_effect": bool(is_double_effect_active),
             },
         )
 
-        return double_effect_chance, enemy_is_double_effect_active
+        return double_effect_chance, is_double_effect_active
 
 
-    def parse_interferance_status(self, data):
+    def parse_interference_status(self, data):
         """
         解析干扰波等级及是否更新密钥
         """
+        if not data:
+            self.logger.log("Interference status data is empty")
+            return None
         radar_info = data[0]
         # 提取位 3-4 作为干扰波等级
         interference_level = (radar_info >> 3) & 0x03

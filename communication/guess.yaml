@@ -48,5 +48,5 @@ Red:
     - x: 10.260731
       y: 1.177778
 
-d_factor: 0.01
+d_factor: 0.05
 cos_factor: 0.003

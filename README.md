@@ -158,7 +158,6 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
 - `camera_to_field_init(capture)`：弹出交互式选点 UI（调用 `camera_locator/point_picker.py`），让操作员在当前帧上点选已知赛场地标，计算透视变换矩阵存入 `Vision_Locator`。
 - `detection_main(box, t) → [x, y, z]`：走 `camera_results()` → `Vision_Locator.parser()` 纯视觉定位路径。
 - `camera_to_image(pc)`：将相机坐标系 XYZ 反投影到图像像素，用于 debug 可视化。
-- `angle_to_quadrant(angle)`：将方位角转为象限编号，供哨兵预警使用。
 
 #### `Lidar/vision_locator.py`
 **单目视觉透视定位，`Converter` 的定位核心。**
@@ -206,13 +205,11 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
 - **由主循环调用的接口**：
   - `update_enemy_car_infos(list)`：更新敌方车辆位置。
   - `update_our_car_infos(list)`：更新己方车辆位置。
-  - `update_sentinel_alert_info([car_id, distance, quadrant])`：更新哨兵最近威胁。
 - **main_loop 内每帧执行**：
   - 从 `Receiver`（进程间 `multiprocessing.Value`）同步己方血量、标记进度、剩余时间、飞镖目标等裁判系统数据。
   - 调用 `send_double_effect_decision()`：根据战场态势（飞镖目标/基地血量/前哨血量/时间）决定是否请求双倍易伤，发送密钥。
   - 调用 `send_map()`（~4.8fps）：打包 12 辆车坐标发给下位机。
-  - 调用 `send_sentry_perception()` + `send_sentinel_enemy_HP()`（~5fps）：发送哨兵感知数据和敌方血量。
-  - 当检测到 `is_alert_hero` 时调用 `send_sentinel_alert_hero()`。
+  - 分别按 `sentry_hz` 和 `enemy_hp_hz` 调用 `send_sentry_perception()`、`send_sentinel_enemy_HP()`。
 - **位置超时降级**：当车辆位置 life 小于 0 时，对应小地图坐标发送 `[0.0, 0.0]`，不再使用预测点或固定备份点。
 
 #### `communication/Sender.py`
@@ -223,9 +220,7 @@ Shell 脚本，按序启动 6 个 gnome-terminal 窗口（roscore → Livox SDK 
 - 主要发送指令：
   - `send_all_location(infos)`：12 辆车 XY 坐标（cm 单位，uint16）→ 给哨兵小地图。
   - `send_sentinel_field_info(car_infos)`：6 辆敌方车坐标 → 哨兵全局感知。
-  - `send_sentinel_alert_info(carID, distance, quadrant)`：最近威胁车辆 ID + 距离 + 象限。
   - `send_double_effect_analysis_result_info(times, jam_key)`：双倍易伤决策 + 干扰密钥。
-  - `send_hero_alert_info(is_alert)`：敌方英雄入侵区域预警。
   - `send_enemy_HP_info(hp_list)`：敌方血量 → 给哨兵。
 
 #### `communication/Receiver.py`

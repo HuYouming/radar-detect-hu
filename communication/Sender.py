@@ -13,16 +13,10 @@ class Sender:
 
         if self.my_color == 'Red':
             self.my_id = 9
-            self.my_drone = 6
-            self.my_hero_id = 1
             self.my_sentinel_id = 7
-            self.enemy_sentinel_id = 107
         else:
             self.my_id = 109
-            self.my_drone = 106
-            self.my_hero_id = 101
             self.my_sentinel_id = 107
-            self.enemy_sentinel_id = 7
 
         self.enabled = cfg.get('communication', {}).get('enabled', True)
         self.port = cfg['communication'].get('port', '/dev/ttyUSB0')
@@ -31,7 +25,6 @@ class Sender:
         # self.SOF = b'\xA5'
         self.SOF = struct.pack('B',0xa5)
         self.seq = 0  # 目前均为单包数据，且无重发机制?
-        self.double_effect_times = 0
         self.ser = self.serial_init()
         # UDP发送器
         self.udp_sender = InterferenceSender("127.0.0.1", 40003)
@@ -252,13 +245,7 @@ class Sender:
 
 
 
-    # 构建机器人交互数据主cmd_id为0x0301,机器人交互数据目前只发给哨兵
-    # (1).子内容ID为0x0201时，发送哨兵最近车辆的预警信息，在内容数据段开始，第一个H(unsigned short -> 2 bytes)为车辆ID，同附录，1-5,7为红1-5,7;101-105,107为蓝1-5,7
-    # 第二个f(float -> 4 bytes)为距离，单位m,(测试版,如果效果好考虑改为角度，单位度)第三个H(unsigned short -> 2 bytes)为象限,值为0-7,分别对应正方向顺时针-22.5-22.5度,22.5-67.5度,67.5-112.5度,112.5-157.5度,157.5-202.5度,202.5-247.5度,247.5-292.5度,292.5-337.5度
-    # (2).子内容ID为0x0202时，发送给哨兵在我的赛场坐标系下哨兵的坐标和所有检测到敌方车辆的赛场坐标系信息
-    # 按照 哨兵 ， 敌方1号 ， 敌方2号 ， 敌方3号 ， 敌方4号 ， 敌方5号 ， 敌方7号的顺序发送
-    # 每一个车辆的信息为一个B(unsigned char -> 1 byte)为信息是否有效 , 0x00为无效，0x01为有效，一个f(float -> 4 bytes)为x坐标，一个f(float -> 4 bytes)为y坐标
-    # (3).子内容ID为0x0203时，发送英雄预警，没来发0x00，来了发0xff
+    # 构建机器人交互数据，主 cmd_id 为 0x0301。
     '''
 字节偏移量 大小    说明             备注
 0         2    子内容 ID   需为开放的子内容 ID
@@ -274,66 +261,7 @@ class Sender:
     uint8_t user_data[x];
     }robot_interaction_data_t;
     '''
-    # (1)组织哨兵预警角信息 , 中间方法
-    def generate_sentinel_alert_info(self , carID , distance , quadrant):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0201)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_sentinel_id)
-        data = data_cmd_id + sender_id + receiver_id + struct.pack('H', carID) + struct.pack('f', distance) + struct.pack('H', quadrant)
-        data_len = len(data)
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        # print(tx_buff)
-
-        return tx_buff
-
-    def generate_sentry_perception_info(self,infos):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0201)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_sentinel_id)
-        data = data_cmd_id + sender_id + receiver_id
-        for info in infos:
-            x = int(info[0] * 100)
-            y = int(info[1] * 100)
-            # print("map ",x,y)
-            data += struct.pack('HH', x, y)  # 单位转换为cm
-
-        data_len = len(data)
-        # print("data len ",data_len)
-
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        return tx_buff
-
-    def send_sentry_perception_info(self,infos):
-        tx_buff = self.generate_sentry_perception_info(infos)
-        self.send_info(tx_buff)
-
-    # 机器人交互数据0x0301共通部分，后面的方法是data_cmd_id的不同
-    def generate_robot_interact_info(self):
-        pass
-
-    # (1)发送哨兵预警角信息 , 调用方法
-    def send_sentinel_alert_info(self , carID , distance , quadrant):
-        tx_buff = self.generate_sentinel_alert_info(carID , distance , quadrant)
-        # print(tx_buff)
-        self.send_info(tx_buff)
-
-    # (2)组织哨兵赛场坐标信息 , 中间方法 , 传入car_infos , len(car_infos) = 5 ,按顺序组织 , 必须补全5份信息
+    # 组织哨兵赛场坐标信息，传入 6 辆敌方车辆的 [x, y]。
     # car_info in car_infos: [[x , y]]
     def generate_sentinel_field_info(self , car_infos):
         cmd_id = struct.pack('H', 0x0301)
@@ -355,25 +283,26 @@ class Sender:
 
         return tx_buff
 
-    # (2)发送哨兵赛场坐标信息 , 调用方法 , 传入car_infos , len(car_infos) = 5 , 按顺序组织 , 必须补全5份信息
-    # car_info in car_infos: [[x , y]] , is_valid对应Car对象的trust属性
+    # 发送哨兵赛场坐标信息。
     def send_sentinel_field_info(self , car_infos):
         tx_buff = self.generate_sentinel_field_info(car_infos)
         self.logger.log(f"Generated sentinel field info: {' '.join(f'0x{b:02x}' for b in tx_buff)}")
 
         self.send_info(tx_buff)
 
-    # （3）组织雷达自主决策信息,中间方法
-    def generate_double_effect_analysis_result_info(self , times = 1, analysis_result = '000000'):
+    # 组织雷达自主决策信息。请求序号开局为0，每次请求只能增加1，不能回退。
+    def generate_double_effect_analysis_result_info(self, request_id=0, analysis_result='000000'):
+        if not 0 <= int(request_id) <= 0xFF:
+            raise ValueError("double effect request_id must fit in uint8")
         cmd_id = struct.pack('H', 0x0301)
         data_cmd_id = struct.pack('H', 0x0121)
         sender_id = struct.pack('H', self.my_id)
         receiver_id = struct.pack('H', 0x8080)
-        times_data = struct.pack('B',times)
+        request_data = struct.pack('B', int(request_id))
         password_cmd = struct.pack('B', 2)
         password = analysis_result.encode('ascii', 'ignore')[:6].ljust(6, b'\x00')
 
-        data = data_cmd_id + sender_id + receiver_id + times_data + password_cmd + password
+        data = data_cmd_id + sender_id + receiver_id + request_data + password_cmd + password
 
         data_len = len(data)
         frame_head = self.get_frame_header(data_len)
@@ -386,70 +315,15 @@ class Sender:
 
         return tx_buff
 
-    # (3) 发送雷达自主决策信息,调用方法
-    def send_double_effect_analysis_result_info(self,times = 1, analysis_result = '000000'):
-        tx_buff =  self.generate_double_effect_analysis_result_info(times, analysis_result)
+    def send_double_effect_analysis_result_info(self, request_id=0, analysis_result='000000'):
+        tx_buff = self.generate_double_effect_analysis_result_info(request_id, analysis_result)
         # print("send double",tx_buff)
         # print("send double length",len(tx_buff))
         self.logger.log(f"Send self decision info: {' '.join(f'0x{b:02x}' for b in tx_buff)}")
 
         self.send_info(tx_buff)
 
-    # (4) 组织英雄预警信息,中间方法 , is_alert为true的时候发0xff，false的时候发0x00
-    def generate_hero_alert_info(self , is_alert):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0203)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_sentinel_id)
-        data = data_cmd_id + sender_id + receiver_id
-        if is_alert:
-            data += struct.pack('B', 0xff)
-        else:
-            data += struct.pack('B', 0x00)
-        data_len = len(data)
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        return tx_buff
-
-    # (4) 发送英雄预警信息,调用方法
-    def send_hero_alert_info(self , is_alert):
-        tx_buff = self.generate_hero_alert_info(is_alert)
-        self.send_info(tx_buff)
-
-
-
-    # (5) 组织步兵转发信息0x0204,中间方法 , 将一个uint8_t的数据double_times转发给id号步兵
-    def generate_double_effect_times_to_car(self , car_id, double_times):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0204)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', car_id)
-        data = data_cmd_id + sender_id + receiver_id + struct.pack('B', double_times)
-        data_len = len(data)
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        return tx_buff
-
-    # (5) 发送步兵转发信息0x0204,调用方法`
-    def send_double_effect_times_to_car(self , sentinel_id , double_times):
-        tx_buff = self.generate_double_effect_times_to_car(sentinel_id - 3, double_times)
-        self.send_info(tx_buff)
-        tx_buff = self.generate_double_effect_times_to_car(sentinel_id -4, double_times)
-        self.send_info(tx_buff)
-
-    #（6）向哨兵发送敌方血量信息，中间方法，初始值均为100，每个血量值为两个字节
+    # 向哨兵发送敌方血量信息，中间方法，初始值均为100，每个血量值为两个字节
     def generate_enemy_HP_info(self, enemy_hp_list):
         cmd_id = struct.pack('H', 0x0301)
         data_cmd_id = struct.pack('H', 0x0205)
@@ -486,94 +360,3 @@ class Sender:
     def send_interferance_level_info(self, level):
         tx_buff = self.generate_interferance_level_info(level)
         self.udp_sender.send_value(tx_buff)
-
-
-    '''
-    机器人交互数据通过常规链路发送，其数据段包含一个统一的数据段头结构。数据段头结构包括内容 ID、
-发送者和接收者的 ID、内容数据段。机器人交互数据包的总长不超过 127 个字节，减去 frame_header、
-cmd_id 和 frame_tail 的 9 个字节以及数据段头结构的 6 个字节，故机器人交互数据的内容数据段最大
-为 112 个字节。
-    每 1000 毫秒，英雄、工程、步兵、空中机器人、飞镖能够接收数据的上限为 3720 字节，雷达和哨兵机器
-人能够接收数据的上限为 5120 字节。
-    由于存在多个内容 ID，但整个 cmd_id 上行频率最大为 30Hz，请合理安排带宽。
-    '''
-    def generate_hero_assit_info(self,send_hero_assit_info, is_assit = False):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0203)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_hero_id)
-        data = data_cmd_id + sender_id + receiver_id
-        if is_assit:
-            data += struct.pack('B', 0x01) + struct.pack('ff', send_hero_assit_info["yaw"], send_hero_assit_info["pitch"])
-        else:
-            data += struct.pack('B', 0x00)
-        data_len = len(data)
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        return tx_buff
-
-    def send_hero_assit_info(self, send_hero_assit_info,is_assit):
-        tx_buff = self.generate_hero_assit_info(send_hero_assit_info,is_assit)
-        self.send_info(tx_buff)
-
-    def generate_alert_our_hero(self, is_alert_our_hero):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0203)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_hero_id)
-        data = data_cmd_id + sender_id + receiver_id
-        if is_alert_our_hero:
-            data += struct.pack('B', 0x01)
-        else:
-            data += struct.pack('B', 0x00)
-        data_len = len(data)
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        return tx_buff
-
-    def send_alert_our_hero(self, secure_our_hero):
-        tx_buff = self.generate_alert_our_hero(secure_our_hero)
-        self.send_info(tx_buff)
-
-    def generate_alert_hero(self, infos):
-        cmd_id = struct.pack('H', 0x0301)
-        data_cmd_id = struct.pack('H', 0x0201)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_drone)
-        data = data_cmd_id + sender_id + receiver_id
-        for info in infos:
-            x = int(info[0] * 100)
-            # y = int(info[1] * 100)
-            # print("map ",x,y)
-            data += struct.pack('H', x)
-
-        data_len = len(data)
-        frame_head = self.get_frame_header(data_len)
-
-        tx_buff = frame_head + cmd_id + data
-
-        frame_tail = self.get_frame_tail(tx_buff)
-
-        tx_buff += frame_tail
-
-        return tx_buff
-
-    def send_alert_to_Drone(self,is_alert_our_hero):
-        tx_buff = self.generate_alert_hero(is_alert_our_hero)
-        self.send_info(tx_buff)
-
-    def send_secure_our_hero(self, secure_our_hero, enemy_distance):
-        tx_buff = self.generate_alert_hero(enemy_distance)
-        self.send_info(tx_buff)

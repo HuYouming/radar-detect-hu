@@ -66,7 +66,7 @@ python -m detect.Detector ...
 
 - 订阅 `/vision/detect` 获取检测框。
 - 完成坐标解算、CarList 更新。
-- 发布 `/messager/state`，把敌方车辆、我方车辆、哨兵预警结果交给 Messager 进程。
+- 发布 `/messager/state`，把敌方车辆和我方车辆结果交给 Messager 进程。
 - 将最终绘图信息发布到 `/vision/result`。
 
 ### `configs/detector_config.yaml`
@@ -230,13 +230,13 @@ JSON 示例：
 }
 ```
 
-`26_main.py` 不再 import、实例化或调用 `Messager`，只发布 `/messager/state`。`communication/Messager.py` 作为独立 ROS1 节点运行，订阅 `/messager/state` 后自行更新车辆信息和哨兵预警信息。
+`26_main.py` 不再 import、实例化或调用 `Messager`，只发布 `/messager/state`。`communication/Messager.py` 作为独立 ROS1 节点运行，订阅 `/messager/state` 后自行更新车辆信息。
 
 发送频率由 `configs/main_config.yaml` 控制：
 
-- `map`: 4.8Hz
+- `map`: 4.9Hz
 - `sentry_perception`: 5Hz
-- `enemy_hp`: 5Hz
+- `enemy_hp`: 4.9Hz
 - `double_effect_decision`: 25Hz skip 控制
 - `main_loop_hz`: 100Hz，用于保证 25Hz 发送不会被 Messager 主循环限制
 
@@ -251,9 +251,9 @@ messager:
   enabled: true
   state_topic: '/messager/state'
   main_loop_hz: 100.0
-  map_hz: 4.8
+  map_hz: 4.9
   sentry_hz: 5.0
-  enemy_hp_hz: 5.0
+  enemy_hp_hz: 4.9
   double_effect_hz: 25.0
 ```
 
