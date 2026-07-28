@@ -16,6 +16,8 @@ from std_msgs.msg import Float32MultiArray
 
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
 DRONE_ROS_MAX_MISSED_MAP_CYCLES = 5
+BLUE_DOUBLE_EFFECT_ENEMY_X_MIN = 17.939587
+RED_DOUBLE_EFFECT_ENEMY_X_MAX = 9.926868
 
 
 class Messager:
@@ -449,11 +451,52 @@ class Messager:
         self.sender.send_info(tx_buff)
 
     # 双倍易伤申请
+    def should_request_double_effect_by_enemy_position(self):
+        if self.my_color == "Blue":
+            target_ids = {3, 4, 7}
+            x_threshold = BLUE_DOUBLE_EFFECT_ENEMY_X_MIN
+            compare_greater = True
+        elif self.my_color == "Red":
+            target_ids = {103, 104, 107}
+            x_threshold = RED_DOUBLE_EFFECT_ENEMY_X_MAX
+            compare_greater = False
+        else:
+            return False
+
+        matched_ids = set()
+        for car_info in self.enemy_car_infos:
+            if not isinstance(car_info, list) or len(car_info) < 7:
+                continue
+            try:
+                car_id = int(car_info[1])
+                field_xyz = car_info[4]
+                is_valid = bool(car_info[6])
+            except (TypeError, ValueError):
+                continue
+            if car_id not in target_ids or not is_valid:
+                continue
+            if not isinstance(field_xyz, list) or not field_xyz:
+                continue
+            try:
+                x = float(field_xyz[0])
+            except (TypeError, ValueError):
+                continue
+            x_matches = x > x_threshold if compare_greater else x < x_threshold
+            if x_matches:
+                matched_ids.add(car_id)
+
+        return len(matched_ids) >= 2
+
     def should_request_double_effect(self):
         dart_condition = self.dart_target in (1, 2)
         health_condition = self.my_health_info[7] <= 4800
         time_condition = 0 <= self.time_left <= self.send_double_time_threshold
-        return dart_condition or health_condition or time_condition
+        position_condition = self.should_request_double_effect_by_enemy_position()
+        if dart_condition or health_condition or time_condition or position_condition:
+            self.logger.log(f"Double effect request conditions met: dart={dart_condition}, health={health_condition}, time={time_condition}, position={position_condition}")
+            return True
+        else:
+            return False
 
     def send_double_effect_decision(self):
         jam_key = self.get_jam_key()

@@ -44,6 +44,8 @@ def build_messager_for_decision():
     messager.mark_progress = [0, 0, 0, 0, 0, 0]
     messager.interference_level = 1
     messager.is_key_update = 0
+    messager.my_color = "Red"
+    messager.enemy_car_infos = []
     return messager
 
 
@@ -108,6 +110,41 @@ class ReceiverProtocolTest(unittest.TestCase):
 
 
 class MessagerProtocolTest(unittest.TestCase):
+    def test_blue_requests_double_effect_when_two_targets_cross_x_threshold(self):
+        messager = build_messager_for_decision()
+        messager.my_color = "Blue"
+        messager.enemy_car_infos = [
+            [1, 3, [], [], [17.939587, 1.0, 0.0], "Red", True],
+            [2, 4, [], [], [18.0, 2.0, 0.0], "Red", True],
+            [3, 7, [], [], [20.0, 3.0, 0.0], "Red", True],
+        ]
+
+        self.assertTrue(messager.should_request_double_effect_by_enemy_position())
+        self.assertTrue(messager.should_request_double_effect())
+
+    def test_red_requests_double_effect_when_two_targets_cross_x_threshold(self):
+        messager = build_messager_for_decision()
+        messager.enemy_car_infos = [
+            [1, 103, [], [], [9.926868, 1.0, 0.0], "Blue", True],
+            [2, 104, [], [], [9.0, 2.0, 0.0], "Blue", True],
+            [3, 107, [], [], [8.0, 3.0, 0.0], "Blue", True],
+        ]
+
+        self.assertTrue(messager.should_request_double_effect_by_enemy_position())
+        self.assertTrue(messager.should_request_double_effect())
+
+    def test_position_condition_ignores_invalid_and_duplicate_targets(self):
+        messager = build_messager_for_decision()
+        messager.enemy_car_infos = [
+            [1, 103, [], [], [9.0, 1.0, 0.0], "Blue", True],
+            [2, 103, [], [], [8.0, 2.0, 0.0], "Blue", True],
+            [3, 104, [], [], [7.0, 3.0, 0.0], "Blue", False],
+            [4, 107, [], [], [9.926868, 4.0, 0.0], "Blue", True],
+        ]
+
+        self.assertFalse(messager.should_request_double_effect_by_enemy_position())
+        self.assertFalse(messager.should_request_double_effect())
+
     def test_drone_uses_ros_x_and_fixed_y_until_five_missed_map_cycles(self):
         messager = build_messager_for_drone()
 
