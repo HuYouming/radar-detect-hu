@@ -1,5 +1,6 @@
 import json
 import struct
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import call, patch
@@ -46,6 +47,34 @@ def build_messager_for_decision():
     return messager
 
 
+def build_messager_for_drone():
+    messager = Messager.__new__(Messager)
+    messager.logger = StubLogger()
+    messager.my_color = "Red"
+    messager.enemy_id = [101, 102, 103, 104, 106, 107]
+    messager.enemy_car_infos = []
+    messager.our_car_infos = []
+    messager.car_life_infos = {}
+    messager.send_map_infos = [[0.0, 0.0] for _ in range(12)]
+    messager.send_map_info_is_latest = [0] * 12
+    messager.drone_fixed_y = 6.5
+    messager._drone_field_xyz = [12.25, 3.0, 2.0]
+    messager._drone_ros_update_seq = 1
+    messager._drone_last_map_update_seq = 0
+    messager._drone_missed_map_cycles = 0
+    messager._drone_use_ros = True
+    messager.guess_points = {
+        106: {
+            "name": "drone",
+            "x": 20.0,
+            "y": 1.0,
+            "active": True,
+            "stamp": 0.0,
+        }
+    }
+    return messager
+
+
 class ReceiverProtocolTest(unittest.TestCase):
     def setUp(self):
         self.receiver = Receiver.__new__(Receiver)
@@ -79,6 +108,38 @@ class ReceiverProtocolTest(unittest.TestCase):
 
 
 class MessagerProtocolTest(unittest.TestCase):
+    def test_drone_uses_ros_x_and_fixed_y_until_five_missed_map_cycles(self):
+        messager = build_messager_for_drone()
+
+        for _ in range(6):
+            messager._advance_drone_source_for_map_cycle()
+            messager.apply_drone_ros_point()
+            self.assertEqual(messager.send_map_infos[4], [12.25, 6.5])
+
+        messager.guess_points[106]["stamp"] = time.time()
+        messager._advance_drone_source_for_map_cycle()
+        messager.apply_guess_points()
+        self.assertEqual(messager.send_map_infos[4], [20.0, 1.0])
+
+    def test_drone_ros_update_interrupts_guessing(self):
+        messager = build_messager_for_drone()
+        messager._drone_use_ros = False
+        messager._drone_missed_map_cycles = 6
+        messager.guess_points[106]["stamp"] = time.time()
+        messager.apply_guess_points()
+        self.assertEqual(messager.send_map_infos[4], [20.0, 1.0])
+
+        messager.my_color = "Blue"
+        with patch(
+            "communication.Messager.pc2.read_points",
+            return_value=[(19.25, 4.0, 2.0)],
+        ):
+            messager._drone_field_callback(SimpleNamespace())
+
+        messager._advance_drone_source_for_map_cycle()
+        messager.apply_drone_ros_point()
+        self.assertEqual(messager.send_map_infos[4], [8.75, 6.5])
+
     def test_full_state_synchronizes_dart_target_and_ten_health_values(self):
         messager = build_messager_for_decision()
         health = list(range(10))

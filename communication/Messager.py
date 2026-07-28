@@ -15,6 +15,7 @@ from std_msgs.msg import String
 from std_msgs.msg import Float32MultiArray
 
 MAIN_CONFIG_PATH = "./configs/main_config.yaml"
+DRONE_ROS_MAX_MISSED_MAP_CYCLES = 5
 
 
 class Messager:
@@ -31,7 +32,11 @@ class Messager:
         self.double_effect_hz = float(messager_cfg['double_effect_hz'])
         # ROS 订阅数据缓存
         self._drone_field_xyz = None  # [x, y, z] 赛场坐标系下的无人机坐标
-        self._drone_field_timestamp = 0.0
+        self.drone_fixed_y = float(communication_cfg.get('drone_fixed_y', 0.0))
+        self._drone_ros_update_seq = 0
+        self._drone_last_map_update_seq = 0
+        self._drone_missed_map_cycles = 0
+        self._drone_use_ros = False
 
         self.interference_level = 1  # 当前干扰等级，默认1级
         self.is_key_update = 0
@@ -190,7 +195,9 @@ class Messager:
             if self.my_color == "Blue":
                 self._drone_field_xyz[0] = 28 - self._drone_field_xyz[0]
                 self._drone_field_xyz[1] = 15 - self._drone_field_xyz[1]
-            self._drone_field_timestamp = msg.header.stamp.to_sec()
+            self._drone_ros_update_seq += 1
+            self._drone_missed_map_cycles = 0
+            self._drone_use_ros = True
 
         except Exception as e:
             self.logger.log(f"[ROS] /drone_field_xyz 解析错误: {e}")
@@ -295,10 +302,32 @@ class Messager:
     def get_jam_key(self):
         return self._jam_key
 
-    def is_drone_data_fresh(self, timeout=1.0):
+    def _advance_drone_source_for_map_cycle(self):
         if self._drone_field_xyz is None:
-            return False
-        return (rospy.Time.now().to_sec() - self._drone_field_timestamp) < timeout
+            self._drone_use_ros = False
+            return
+
+        if self._drone_ros_update_seq != self._drone_last_map_update_seq:
+            self._drone_last_map_update_seq = self._drone_ros_update_seq
+            self._drone_missed_map_cycles = 0
+        else:
+            self._drone_missed_map_cycles += 1
+
+        self._drone_use_ros = (
+            self._drone_missed_map_cycles <= DRONE_ROS_MAX_MISSED_MAP_CYCLES
+        )
+
+    def apply_drone_ros_point(self):
+        if not self._drone_use_ros or self._drone_field_xyz is None:
+            return
+
+        x = max(0.0, min(float(self._drone_field_xyz[0]), 28.0))
+        y = max(0.0, min(self.drone_fixed_y, 15.0))
+        for i, enemy_id in enumerate(self.enemy_id):
+            if enemy_id in (6, 106):
+                self.send_map_infos[i] = [x, y]
+                self.send_map_info_is_latest[i] = 5
+                break
 
     def _health_array_callback(self, msg):
         try:
@@ -365,6 +394,8 @@ class Messager:
             if not point.get("active", False):
                 continue
             if now - float(point.get("stamp", 0.0)) > 1.0:
+                continue
+            if point.get("name") == "drone" and self._drone_use_ros:
                 continue
             if self.is_car_vision_valid(car_id):
                 continue
@@ -536,6 +567,7 @@ class Messager:
                         break
 
             self.apply_guess_points()
+            self.apply_drone_ros_point()
 
             if self.is_next_second():
                 self.status_logger.log(
@@ -546,6 +578,9 @@ class Messager:
             # 发送 , 采用skip的方式控制发送频率，不用sleep影响主循环频率
             is_skip, self.last_send_map_time = Tools.frame_control_skip(self.map_hz, self.last_send_map_time)
             if not is_skip:
+                self._advance_drone_source_for_map_cycle()
+                self.apply_guess_points()
+                self.apply_drone_ros_point()
                 # p = [14, 7.5]
                 # debug_data = [p,p,p,p,p,p]
                 self.send_map(self.send_map_infos)

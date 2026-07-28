@@ -89,13 +89,13 @@ class Guess:
         rospy.Subscriber(self.receiver_state_topic, String, self.receiver_state_callback, queue_size=20)
 
     def _build_targets(self, color):
+        # 无人机候选点持续发布，由 Messager 根据 ROS 小地图发送周期决定是否启用。
         if color == "Blue":
             return {
                 "hero": {"car_id": 1, "label": "R1", "mark_index": 0},
                 "engineer": {"car_id": 2, "label": "R2", "mark_index": 1},
                 "infantry_3": {"car_id": 3, "label": "R3", "mark_index": 2},
                 "infantry_4": {"car_id": 4, "label": "R4", "mark_index": 3},
-                "infantry_5": {"car_id": 5, "label": "R5", "mark_index": None},
                 "drone": {"car_id": 6, "label": None, "mark_index": 4, "use_life": False},
                 "sentinel": {"car_id": 7, "label": "R7", "mark_index": 5},
             }
@@ -105,7 +105,6 @@ class Guess:
                 "engineer": {"car_id": 102, "label": "B2", "mark_index": 1},
                 "infantry_3": {"car_id": 103, "label": "B3", "mark_index": 2},
                 "infantry_4": {"car_id": 104, "label": "B4", "mark_index": 3},
-                "infantry_5": {"car_id": 105, "label": "B5", "mark_index": None},
                 "drone": {"car_id": 106, "label": None, "mark_index": 4, "use_life": False},
                 "sentinel": {"car_id": 107, "label": "B7", "mark_index": 5},
             }

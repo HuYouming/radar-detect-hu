@@ -27,6 +27,7 @@ communication:
   position_topic: '/messge/position'
   receiver_state_topic: '/receiver/state'
   guess_topic: '/guess/point'
+  drone_fixed_y: 1.866667 # 无人机小地图固定发送的 y 坐标，现场填写
   port: '/dev/ttyUSB0' # 串口
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间
