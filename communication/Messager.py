@@ -417,9 +417,10 @@ class Messager:
         tx_buff = self.sender.generate_enemy_HP_info(hp_infos)
         self.sender.send_info(tx_buff)
 
+    # 双倍易伤申请
     def should_request_double_effect(self):
         dart_condition = self.dart_target in (1, 2)
-        health_condition = self.my_health_info[6] <= 1200 or self.my_health_info[7] <= 4800
+        health_condition = self.my_health_info[7] <= 4800
         time_condition = 0 <= self.time_left <= self.send_double_time_threshold
         return dart_condition or health_condition or time_condition
 
@@ -550,7 +551,7 @@ class Messager:
                 self.send_map(self.send_map_infos)
 
             self.send_sentry_updates()
-
+            self.sender.udp_sender.send_value(self.interference_level)
             main_rate.sleep()
 
         print("messager stop")
