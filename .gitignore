@@ -1,3 +1,7 @@
 build/
 data/
 Log/logfile/
+__pycache__/
+.vscode/
+data/
+Radio/All_In/

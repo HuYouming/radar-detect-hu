@@ -83,7 +83,7 @@ TABLE_PITCH_MAX = 12.0
 TABLE_PITCH_PERIOD = 4.0
 TABLE_PUBLISH_HZ = 20.0
 
-DRONE_MAP_PATH = "/root/rm/radar-detect/RM2026_map.pcd"
+DRONE_MAP_PATH = "/home/radar/Radar/code/Radar_ros_2026/radar-detect/RM2026_map.pcd"
 DRONE_LIDAR_TOPIC = "/livox/lidar"
 DRONE_FRAME_ID = "world"
 DRONE_ANGLE_MODE = "track"

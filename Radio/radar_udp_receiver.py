@@ -9,8 +9,6 @@ from enum import Enum
 from multiprocessing import Array
 import rospy
 
-
-# ==================== 命令字定义 ====================
 class CommandType(Enum):
     POSITION = 0x0A01      # 对方机器人位置坐标 (24字节)
     HEALTH = 0x0A02        # 对方机器人血量信息 (12字节)
@@ -30,7 +28,6 @@ COMMAND_LENGTH_MAP = {
 }
 
 
-# ==================== CRC8查表 ====================
 CRC8_TAB = [
     0x00, 0x5E, 0xBC, 0xE2, 0x61, 0x3F, 0xDD, 0x83, 0xC2, 0x9C, 0x7E, 0x20, 0xA3, 0xFD, 0x1F, 0x41,
     0x9D, 0xC3, 0x21, 0x7F, 0xFC, 0xA2, 0x40, 0x1E, 0x5F, 0x01, 0xE3, 0xBD, 0x3E, 0x60, 0x82, 0xDC,
@@ -101,8 +98,6 @@ def crc16(data: bytes, crc: int = CRC16_INIT) -> int:
         crc = ((crc >> 8) ^ WCRC_TABLE[(crc ^ byte) & 0x00FF]) & 0xFFFF
     return crc
 
-
-# ==================== 数据类 ====================
 @dataclass
 class RobotPositions:
     hero: Tuple[int, int] = (0, 0)
@@ -116,7 +111,7 @@ class RobotPositions:
     def from_bytes(cls, data: bytes) -> 'RobotPositions':
         if len(data) < 24:
             raise ValueError(f"数据长度不足24字节，实际{len(data)}字节")
-        coords = struct.unpack('>12h', data[:24])
+        coords = struct.unpack('<12h', data[:24])
         return cls(
             hero=(coords[0], coords[1]),
             engineer=(coords[2], coords[3]),
@@ -129,7 +124,6 @@ class RobotPositions:
     def get_position_dict(self) -> Dict[int, Tuple[int, int]]:
         return {1: self.hero, 2: self.engineer, 3: self.infantry_3, 
                 4: self.infantry_4, 6: self.aerial, 7: self.sentry}
-
 
 @dataclass
 class RobotHealths:
@@ -144,7 +138,7 @@ class RobotHealths:
     def from_bytes(cls, data: bytes) -> 'RobotHealths':
         if len(data) < 12:
             raise ValueError(f"数据长度不足12字节，实际{len(data)}字节")
-        values = struct.unpack('>6H', data[:12])
+        values = struct.unpack('<6H', data[:12])
         return cls(
             hero=values[0], engineer=values[1], infantry_3=values[2],
             infantry_4=values[3], reserved=values[4], sentry=values[5]
@@ -167,7 +161,7 @@ class RobotAmmos:
     def from_bytes(cls, data: bytes) -> 'RobotAmmos':
         if len(data) < 10:
             raise ValueError(f"数据长度不足10字节，实际{len(data)}字节")
-        values = struct.unpack('>5H', data[:10])
+        values = struct.unpack('<5H', data[:10])
         return cls(
             hero=values[0], infantry_3=values[1], infantry_4=values[2],
             aerial=values[3], sentry=values[4]
@@ -231,9 +225,9 @@ class TeamStatus:
     def from_bytes(cls, data: bytes) -> 'TeamStatus':
         if len(data) < 8:
             raise ValueError(f"数据长度不足8字节，实际{len(data)}字节")
-        remaining_coins = struct.unpack('>H', data[0:2])[0]
-        destroy_count = struct.unpack('>H', data[2:4])[0]
-        status_bits = struct.unpack('>I', data[4:8])[0]
+        remaining_coins = struct.unpack('<H', data[0:2])[0]
+        destroy_count = struct.unpack('<H', data[2:4])[0]
+        status_bits = struct.unpack('<I', data[4:8])[0]
         return cls(
             remaining_coins=remaining_coins,
             destroy_count=destroy_count,
@@ -296,7 +290,6 @@ class JamKey:
         return cls(key=key)
 
 
-# ==================== 雷达数据帧解析 ====================
 class RadarDataFrame:
     FRAME_HEADER = 0xA5
 
@@ -321,7 +314,7 @@ class RadarDataFrame:
             return False
         pos += 1
 
-        self.data_length = struct.unpack('>H', raw_data[pos:pos+2])[0]
+        self.data_length = struct.unpack('<H', raw_data[pos:pos+2])[0]
         pos += 2
 
         self.seq = raw_data[pos]
@@ -330,12 +323,12 @@ class RadarDataFrame:
         self.header_crc8 = raw_data[pos]
         pos += 1
 
-        header = bytes([0xA5]) + struct.pack('>H', self.data_length) + bytes([self.seq])
+        header = bytes([0xA5]) + struct.pack('<H', self.data_length) + bytes([self.seq])
         calc_crc8 = crc8(header)
         if self.header_crc8 != calc_crc8:
             return False
 
-        self.cmd_id = struct.unpack('>H', raw_data[pos:pos+2])[0]
+        self.cmd_id = struct.unpack('<H', raw_data[pos:pos+2])[0]
         pos += 2
 
         try:
@@ -348,7 +341,7 @@ class RadarDataFrame:
         self.data = raw_data[pos:pos + self.data_length]
         pos += self.data_length
 
-        self.frame_crc16 = struct.unpack('>H', raw_data[pos:pos+2])[0]
+        self.frame_crc16 = struct.unpack('<H', raw_data[pos:pos+2])[0]
 
         frame_for_crc = raw_data[:pos]
         calc_crc16 = crc16(frame_for_crc)
@@ -385,11 +378,7 @@ class RadarDataFrame:
 
 
 class RadarUDPReceiver:
-    # 帧格式：SOF(1) + data_length(2) + seq(1) + CRC8(1) + cmd_id(2) + data(n) + CRC16(2)
-    # 总长度 = 9 + data_length
-    # 0x0A01: 33B | 0x0A02: 21B | 0x0A03: 19B | 0x0A04: 17B | 0x0A05: 45B | 0x0A06: 15B
-
-    def __init__(self, host: str = "127.0.0.1", port: int = 40001,
+    def __init__(self, host: str = "127.0.0.1", port: int = 40001, # 广播源数据传输端口
                  shared_enemy_health_list=None, shared_enemy_position_list=None):
         self.host = host
         self.port = port
@@ -397,7 +386,6 @@ class RadarUDPReceiver:
         self.running = False
         self.receive_thread: Optional[threading.Thread] = None
 
-        # 共享内存引用（与Messager/Receiver共用）
         self.shared_enemy_health_list = shared_enemy_health_list
         self.shared_enemy_position_list = shared_enemy_position_list
 
@@ -422,16 +410,14 @@ class RadarUDPReceiver:
             'error_frames': 0,
         }
 
-        # 字节流拼接缓冲区（关键修改）
         self._buffer = bytearray()
         self._buffer_lock = threading.Lock()
-        self._max_buffer_size = 2048  # 防止内存无限增长
+        self._max_buffer_size = 2048
 
     def register_callback(self, cmd_type: CommandType, callback: Callable):
         self.callbacks[cmd_type].append(callback)
 
     def _update_shared_health(self, health_data: RobotHealths):
-        """更新共享内存中的血量"""
         health_dict = health_data.get_health_dict()
         mapping = {1: 0, 2: 1, 3: 2, 4: 3, 7: 5}
         
@@ -443,7 +429,6 @@ class RadarUDPReceiver:
                         self.shared_enemy_health_list[mapping[robot_id]] = hp
 
     def _update_shared_positions(self, pos_data: RobotPositions):
-        """更新共享内存中的位置"""
         pos_dict = pos_data.get_position_dict()
         mapping = {1: 0, 2: 2, 3: 4, 4: 6, 6: 8, 7: 10}
         
@@ -457,12 +442,10 @@ class RadarUDPReceiver:
                         self.shared_enemy_position_list[idx + 1] = float(y)
 
     def get_latest_health(self) -> Optional[RobotHealths]:
-        """线程安全获取最新血量"""
         with self._health_lock:
             return self._latest_health
 
     def get_latest_positions(self) -> Optional[RobotPositions]:
-        """线程安全获取最新位置"""
         with self._position_lock:
             return self._latest_positions
 
@@ -493,12 +476,11 @@ class RadarUDPReceiver:
         print("[UDP] 接收器已停止")
 
     def _receive_loop(self):
-        """接收线程主循环：拼接15字节包，解析完整DJI帧"""
+        """接收线程主循环：拼接15字节包，解析完整数据帧"""
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(1024)
                 self.stats['total_packets'] += 1
-                rospy.loginfo("data: ", data)
                 self.stats['data'] = data
 
                 # 将收到的数据追加到拼接缓冲区
@@ -521,7 +503,7 @@ class RadarUDPReceiver:
                 pass
 
     def _extract_frames(self) -> List[RadarDataFrame]:
-        """从拼接缓冲区中提取所有校验通过的完整DJI帧"""
+        """从拼接缓冲区中提取所有校验通过的完整数据帧"""
         frames: List[RadarDataFrame] = []
 
         with self._buffer_lock:
@@ -545,8 +527,8 @@ class RadarUDPReceiver:
                 if len(self._buffer) < 5:
                     break
 
-                # 读取 data_length（大端）
-                data_length = struct.unpack('>H', bytes(self._buffer[1:3]))[0]
+                # 读取 data_length
+                data_length = struct.unpack('<H', bytes(self._buffer[1:3]))[0]
                 total_frame_len = 9 + data_length  # 5(header) + 2(cmd_id) + n(data) + 2(crc16)
 
                 # 防御异常长度（根据协议最大约 45+9=54，设个安全上限）

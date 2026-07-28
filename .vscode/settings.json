@@ -1,8 +1,0 @@
-{
-    "cmake.sourceDirectory": "/home/radar/Radar/code/Hust_Radar_2026/pclmatcher",
-    "python.analysis.extraPaths": [
-        "${workspaceFolder}/camera/Python/MvImport"
-    ],
-    "python-envs.defaultEnvManager": "ms-python.python:conda",
-    "python-envs.defaultPackageManager": "ms-python.python:conda"
-}

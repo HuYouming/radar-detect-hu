@@ -3,6 +3,9 @@ set:
   yaw: 0.
   roll: 3.0
 
+id:
+  new_cam: 'DA7548439'
+
 param:
   Width: 3088 # 1280
   Height: 2064 # 640

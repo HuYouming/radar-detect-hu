@@ -16,6 +16,9 @@ class Capture:
         cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
         self.camera_name = camera_name
+        self.camera = None
+        self.ret = pointer(c_bool(False))
+        self.logger = RadarLog("Capture")
         self.width = cfg['param']['Width']
         self.height = cfg['param']['Height']
 
@@ -27,8 +30,6 @@ class Capture:
         self.show_height = cfg['param']['show_height']
         self.pyr_times = cfg['param']['pyr_times']
 
-        self.logger = RadarLog("Capture")
-
     # 展示图像
     def show_img(self,img):
         cv2.imshow(self.camera_name, cv2.resize(img, (self.show_width, self.show_height)))
@@ -39,14 +40,14 @@ class Capture:
         self.logger.log(f"get_frame called for {self.camera_name}")
         frame = hk.MV_FRAME_OUT()
         memset(byref(frame), 0, sizeof(frame))
-        self.ret.contents = False
+        self.ret.contents.value = False
 
         # 读取图像
         _ret = self.camera.MV_CC_GetImageBuffer(frame, 100)
         frame_info = frame.stFrameInfo
 
         if _ret == hk.MV_OK:
-            self.ret.contents = True
+            self.ret.contents.value = True
 
             b1 = hk.MVCC_FLOATVALUE()
 
@@ -97,8 +98,7 @@ class Capture:
             self.logger.log(f"camera {self.camera_name} start grabbing failed, ret[0x{ret:x}]")
             sys.exit()
 
-        ret_q = POINTER(c_bool)
-        ret_q.contents = False
+        ret_q = pointer(c_bool(False))
 
         return cam, ret_q
 
