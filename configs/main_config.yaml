@@ -4,7 +4,7 @@ global:
 
 
 ctrl:
-  MODE: 'video'  # 'camera'
+  MODE: 'camera'  # 'camera'
 
 car:
   life_span: 20 # 20帧若未刷新则认为不可信
