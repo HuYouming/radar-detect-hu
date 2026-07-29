@@ -351,9 +351,10 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    path = '/root/rm/radar-detect/debug/RM2026.png'
-    output_path = '/root/rm/radar-detect/debug/RM2026point.png'
-    coordinates_path = '/root/rm/radar-detect/debug/RM2026.json'
+    args = parse_args(argv)
+    path = args.image.resolve()
+    output_path = (args.output or path.with_name(f"{path.stem}_points.png")).resolve()
+    coordinates_path = (args.coordinates or path.with_name(f"{path.stem}_points.json")).resolve()
 
     try:
         image = read_image(path)

@@ -1,4 +1,5 @@
 import cv2
+from pathlib import Path
 
 class MySize:
     def __init__(self, w, h):
@@ -235,8 +236,8 @@ class PointsPicker:
 
 
 if __name__ == '__main__':
-    from anchor import Anchor
-    _image = cv2.imread('./test_image.jpg')
+    from camera_locator.anchor import Anchor
+    _image = cv2.imread(str(Path(__file__).resolve().with_name('test_image.jpg')))
     _anchor = Anchor()
 
     pp = PointsPicker()

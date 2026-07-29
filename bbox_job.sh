@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-PROJECT_ROOT="/home/radar/Radar/code/Radar_ros_2026/26radar/26radar-main"
-VISION_DIR="$PROJECT_ROOT/vision/bbox"
-ROS1_SETUP="/opt/ros/noetic/setup.bash"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VISION_DIR="${VISION_DIR:-${PROJECT_ROOT}/vision/bbox}"
+ROS1_SETUP="${ROS1_SETUP:-/opt/ros/noetic/setup.bash}"
 
 # 1) roscore
 # gnome-terminal -- bash -lc "

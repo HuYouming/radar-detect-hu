@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 import queue
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from Log.Log import RadarLog
+from Tools.Paths import project_path, resolve_project_path
 
 # ============ 标定参数 ============
 TRANSITION_VECTOR = np.array([-0.04067, -0.24053, 0.0053])
@@ -83,7 +84,7 @@ TABLE_PITCH_MAX = 12.0
 TABLE_PITCH_PERIOD = 4.0
 TABLE_PUBLISH_HZ = 20.0
 
-DRONE_MAP_PATH = "/home/radar/Radar/code/Radar_ros_2026/radar-detect/RM2026_map.pcd"
+DRONE_MAP_PATH = str(project_path("RM2026_map.pcd"))
 DRONE_LIDAR_TOPIC = "/livox/lidar"
 DRONE_FRAME_ID = "world"
 DRONE_ANGLE_MODE = "track"
@@ -186,14 +187,12 @@ class LidarTracker:
         self.args = args
 
         # ========== 配置加载 ==========
-        SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-        CONFIG_PATH = os.path.join(SCRIPT_DIR, 'configs', 'world_points.yaml')
-        if not os.path.exists(CONFIG_PATH):
-            CONFIG_PATH = './configs/world_points.yaml'
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = project_path("configs", "world_points.yaml")
 
         self.WORLD_FEATURE_POINTS = None
-        if os.path.exists(CONFIG_PATH):
-            with open(CONFIG_PATH, 'r') as f:
+        if config_path.exists():
+            with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
                 self.WORLD_FEATURE_POINTS = np.array(config['points'])
                 rospy.loginfo(f"Loaded world feature points: {self.WORLD_FEATURE_POINTS}")
@@ -216,7 +215,7 @@ class LidarTracker:
         self.record_raw = args.record_raw
         self.record_world = args.record_world
         self.record_format = args.record_format
-        self.record_dir = args.record_dir or os.path.join(SCRIPT_DIR, 'recordings')
+        self.record_dir = args.record_dir or os.path.join(script_dir, 'recordings')
         self.max_record_queue = args.max_record_queue
         
         self.raw_frame_count = 0
@@ -294,14 +293,7 @@ class LidarTracker:
         rospy.loginfo("=" * 60)
 
     def _resolve_map_path(self, path):
-        if os.path.isabs(path) and os.path.exists(path):
-            return path
-        if os.path.exists(path):
-            return os.path.abspath(path)
-        script_relative = os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
-        if os.path.exists(script_relative):
-            return os.path.abspath(script_relative)
-        return path
+        return str(resolve_project_path(path))
 
     def _init_recording(self):
         timestamp = time.strftime("%Y%m%d_%H%M%S")

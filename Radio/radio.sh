@@ -8,8 +8,10 @@ fi
 
 MAIN_ENV="Radar"
 ROS_DISTRO="noetic"
-SDR_PATH="/home/radar/Radar/code/Radar_ros_2026/Radio/All_In"
-UDP_PATH="/home/radar/Radar/code/Radar_ros_2026/Radio"
+RADIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SDR_PATH="${SDR_PATH:-${RADIO_DIR}/All_In}"
+UDP_PATH="${UDP_PATH:-${RADIO_DIR}}"
+CONDA_EXE="${CONDA_EXE:-conda}"
 
 # 1. 启动 roscore（独立终端）
 if pgrep -x "roscore" > /dev/null; then
@@ -32,7 +34,7 @@ fi
 
 # 2. 启动SDR接收程序
 gnome-terminal --title="SDR receiver" -- bash -c '
-    eval "$('/home/radar/radioconda/bin/conda' 'shell.bash' 'hook')"
+    eval "$('"${CONDA_EXE}"' shell.bash hook)"
     cd '"${SDR_PATH}/RX"'
     ./Pluto_RX.sh
     exec bash
@@ -41,7 +43,7 @@ sleep 5
 
 # 3. 启动主程序
 gnome-terminal --title="UDP receriver" -- bash -c '
-    eval "$('/home/radar/radioconda/bin/conda' 'shell.bash' 'hook')"
+    eval "$('"${CONDA_EXE}"' shell.bash hook)"
     conda activate '"${MAIN_ENV}"'
     source /opt/ros/'"${ROS_DISTRO}"'/setup.bash
     cd '"${UDP_PATH}"'

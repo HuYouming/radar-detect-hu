@@ -1,6 +1,7 @@
 import yaml
 import numpy as np
 import cv2
+from Tools.Paths import project_path
 
 
 class Vision_Locator:
@@ -17,7 +18,7 @@ class Vision_Locator:
         self.world_rvec = world_rvec
         self.world_tvec = world_tvec
 
-        self.minimap = cv2.imread('/home/radar/Radar/code/Radar_ros_2026/radar-detect/Lidar/RM2026.png')
+        self.minimap = cv2.imread(str(project_path("Lidar", "RM2026.png")))
 
         self.points_map = {}  
         self.points_map["Exchange_High"] = Parser_Points("Exchange_High", intrinsic_matrix, dist_coeffs, world_rvec,
@@ -249,7 +250,7 @@ class Parser_Points():
     def __init__(self, name, intrinsic_matrix, dist_coeffs, world_rvec, world_tvec, extrinsic_matrix,img = None):
         self.name = name
         self.debug_img = img
-        self.points_path = '/home/radar/Radar/code/Radar_ros_2026/radar-detect/Lidar/26_point.yaml'  # TODO
+        self.points_path = project_path("Lidar", "26_point.yaml")
         self.extrinsic_matrix = extrinsic_matrix
         self.K = intrinsic_matrix
         self.dist_coeffs = dist_coeffs

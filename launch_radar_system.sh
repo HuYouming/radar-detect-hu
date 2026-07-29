@@ -3,12 +3,17 @@ set -e
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROS_DISTRO="${ROS_DISTRO:-noetic}"
-LIVOX_SETUP="/home/radar/Radar/sdk/devel/setup.bash"
+ROS_SETUP="${ROS_SETUP:-/opt/ros/${ROS_DISTRO}/setup.bash}"
+LIVOX_SETUP="${LIVOX_SETUP:-}"
 PIDS=()
 
-source "/opt/ros/${ROS_DISTRO}/setup.bash"
+if [ ! -f "${ROS_SETUP}" ]; then
+    echo "ROS setup not found: ${ROS_SETUP}" >&2
+    exit 1
+fi
+source "${ROS_SETUP}"
 
-if [ -f "${LIVOX_SETUP}" ]; then
+if [ -n "${LIVOX_SETUP}" ] && [ -f "${LIVOX_SETUP}" ]; then
     source "${LIVOX_SETUP}"
 fi
 

@@ -12,6 +12,7 @@ import os
 import json
 import rospy
 from std_msgs.msg import String
+from Tools.Paths import project_path
 
 mode = "camera" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
 save_video = False # 是否保存视频
@@ -146,11 +147,11 @@ def add_circle(draw_payload, center, radius=5, color=(0, 0, 255), thickness=-1):
 
 
 if __name__ == '__main__':
-    video_path = "./data/shifan.mp4"  # 请改为/path/to/video.avi
-    detector_config_path = "./configs/detector_config.yaml"
-    binocular_camera_cfg_path = "./configs/bin_cam_config.yaml"
-    main_config_path = "./configs/main_config.yaml"
-    converter_config_path = "./configs/converter_config.yaml"
+    video_path = project_path("data", "shifan.mp4")
+    detector_config_path = project_path("configs", "detector_config.yaml")
+    binocular_camera_cfg_path = project_path("configs", "bin_cam_config.yaml")
+    main_config_path = project_path("configs", "main_config.yaml")
+    converter_config_path = project_path("configs", "converter_config.yaml")
     camera_name = "new_cam"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
     mode = main_cfg.get('ctrl', {}).get('MODE', mode)

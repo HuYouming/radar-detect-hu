@@ -1,6 +1,5 @@
 # 定义一个Communicator用于串口通信
 import serial
-import serial.tools.list_ports
 import struct
 from Radio.interferance_level_sender import InterferenceSender
 from Log.Log import RadarLog
@@ -19,7 +18,7 @@ class Sender:
             self.my_sentinel_id = 107
 
         self.enabled = cfg.get('communication', {}).get('enabled', True)
-        self.port = cfg['communication'].get('port', '/dev/ttyUSB0')
+        self.port = cfg['communication'].get('port')
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']
         # self.SOF = b'\xA5'
@@ -103,19 +102,15 @@ class Sender:
             print('通信串口已禁用，Sender 不打开串口')
             return None
 
-        port_list = list(serial.tools.list_ports.comports())
+        if not self.port:
+            raise ValueError("启用串口通信时必须指定 communication.port")
 
-        if len(port_list) == 0:
-            print('无可用串口!')
-            # 停止程序
-            exit()
-        else:
-            for i in range(0, len(port_list)):
-                print(port_list[i])
-
-        ser = serial.Serial(self.port, self.bps, timeout=self.timex)
-
-        return ser
+        try:
+            return serial.Serial(self.port, self.bps, timeout=self.timex)
+        except serial.SerialException as exc:
+            raise serial.SerialException(
+                f"无法打开指定串口 {self.port}: {exc}"
+            ) from exc
 
     # 帧尾获取 , 传入整包数据 , 通用方法
     def get_frame_tail(self , tx_buff):

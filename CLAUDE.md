@@ -8,12 +8,7 @@ This is the **RoboMaster 2026 Radar Station** software for HUST (Huazhong Univer
 
 ## Runtime Environment
 
-**Two-repo dependency**: This repo (`Hust_Radar_2026`) imports `Log.Log` from the sibling repo `Hust_Radar_2025`. All other core modules (`communication/`, `detect/`, `Lidar/`, `Car/`) live in this repo. The config files (`./configs/*.yaml`) are also in this repo and resolved relative to `Hust_Radar_2026/`.
-
-**Correct run directory**: Always run from `Hust_Radar_2026/`. Set `PYTHONPATH` to include `Hust_Radar_2025` for `Log.Log`:
-```bash
-export PYTHONPATH=/home/py/Hust_Radar_2025:$PYTHONPATH
-```
+Repository resources are resolved from the source-defined project root through `Tools.Paths`, so the current working directory does not need to be the repository. The local `Log/` package provides `Log.Log`.
 
 **Environment**: `conda activate Radar`, then `source /opt/ros/noetic/setup.bash` before running anything.
 
@@ -21,17 +16,16 @@ export PYTHONPATH=/home/py/Hust_Radar_2025:$PYTHONPATH
 
 **Full competition launch** (opens 6 gnome-terminal windows):
 ```bash
-cd /home/py/Hust_Radar_2026
-bash 26main.sh
+REPO_DIR="$(git -C /path/to/radar-detect rev-parse --show-toplevel)"
+bash "${REPO_DIR}/26main.sh"
 ```
 Terminals: roscore → Livox SDK → Drone Search (`Counter/init_angle_sender.py`) → UDP Receiver → Radio UDP (`Radio/field_info_publisher.py`) → Main (`26_main.py`).
 
 **Manual single-process run**:
 ```bash
-cd /home/py/Hust_Radar_2026
-export PYTHONPATH=/home/py/Hust_Radar_2025:$PYTHONPATH
+REPO_DIR="$(git -C /path/to/radar-detect rev-parse --show-toplevel)"
 source /opt/ros/noetic/setup.bash
-python3 26_main.py
+python3 "${REPO_DIR}/26_main.py"
 ```
 
 **Entry points**:
@@ -103,7 +97,7 @@ Three concurrent subsystems sharing a central data store (`CarList`):
 - **`Watcher/`** — Standalone serial monitor utilities for observing raw incoming frames during debugging.
 - **`main_utilities.py`** / **`draw_minimap_from_log.py`** — `get_new_box()` shifts detection to chassis bottom; `visualize()` renders a top-down field map.
 
-### Configuration Files (`./configs/`)
+### Configuration Files (`configs/`, resolved from the project root)
 
 | File | Key settings |
 |---|---|

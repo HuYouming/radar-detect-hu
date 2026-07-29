@@ -2,16 +2,17 @@
 
 import cv2
 from ruamel.yaml import YAML
+from Tools.Paths import resolve_project_path
 
 # # 加载配置文件
-# main_cfg_path = "../configs/main_config.yaml"
-# binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
+# main_cfg_path = project_path("configs", "main_config.yaml")
+# binocular_camera_cfg_path = project_path("configs", "bin_cam_config.yaml")
 # main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
 # bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
 class Video:
     def __init__(self, video_path):
-        self.video_path = video_path
+        self.video_path = str(resolve_project_path(video_path))
         self.cap = cv2.VideoCapture(self.video_path)
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
@@ -53,9 +54,9 @@ class Video:
         # cv2.destroyAllWindows()
 
 # def main():
-#     image_path = "../data/002808.jpg"
-#     video_path = "../data/right.mp4"
-#     detector_config_path = "../configs/detector_config.yaml"
+#     image_path = project_path("data", "002808.jpg")
+#     video_path = project_path("data", "right.mp4")
+#     detector_config_path = project_path("configs", "detector_config.yaml")
 #     image = cv2.imread(image_path)
 #
 #     video = Video(video_path)

@@ -6,8 +6,9 @@ import rospy
 from std_msgs.msg import String
 from ruamel.yaml import YAML
 from Log.Log import RadarLog
+from Tools.Paths import project_path, resolve_project_path
 
-MAIN_CONFIG_PATH = "./configs/main_config.yaml"
+MAIN_CONFIG_PATH = project_path("configs", "main_config.yaml")
 
 
 class Receiver:
@@ -435,6 +436,7 @@ bit 8-15：保留
 
 
 def load_config(config_path):
+    config_path = resolve_project_path(config_path)
     with open(config_path, encoding='Utf-8', mode='r') as config_file:
         return YAML().load(config_file)
 

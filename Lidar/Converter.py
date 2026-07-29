@@ -6,6 +6,7 @@ from .vision_locator import Vision_Locator
 import cv2
 import yaml
 from Log.Log import RadarLog
+from Tools.Paths import resolve_project_path
 
 class Converter:
     def __init__(self, my_color, data_loader_path='parameters.yaml'):
@@ -26,6 +27,7 @@ class Converter:
         self.point_4 = [20.35278, -2.168, 0.30176]
 
         self.global_color = my_color
+        data_loader_path = resolve_project_path(data_loader_path)
         with open(data_loader_path, 'r',encoding='utf-8', errors='ignore') as file:
             data_loader = yaml.safe_load(file)
         # 2025

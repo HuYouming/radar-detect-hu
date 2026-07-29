@@ -11,16 +11,17 @@ HUST（华中科技大学）RoboMaster 2026 赛季雷达站软件。雷达站固
 conda activate Radar
 source /opt/ros/noetic/setup.bash
 
+# REPO_DIR 指向本仓库；当前工作目录可以在仓库外
+REPO_DIR="$(git -C /path/to/radar-detect rev-parse --show-toplevel)"
+
 # 全系统启动（6个终端窗口并行）
-cd /home/py/Hust_Radar_2026
-bash 26main.sh
+bash "${REPO_DIR}/26main.sh"
 
 # 单进程调试启动
-export PYTHONPATH=/home/py/Hust_Radar_2025:$PYTHONPATH
-python3 26_main.py
+python3 "${REPO_DIR}/26_main.py"
 ```
 
-> **两仓库依赖**：本仓库 import `Log.Log` 来自兄弟仓库 `Hust_Radar_2025`，需将其加入 `PYTHONPATH`。
+仓库内配置、模型、地图和日志路径均以源码所在的项目根目录解析，不依赖启动目录。仓库外依赖可通过 `ROS_SETUP`、`LIVOX_SETUP`、`LIVOX_WORKSPACE`、`CONDA_EXE`、`SDR_PATH` 和 `VISION_DIR` 覆盖。
 
 ---
 

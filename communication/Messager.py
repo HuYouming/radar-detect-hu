@@ -6,6 +6,7 @@ import time
 from ruamel.yaml import YAML
 from Log.Log import RadarLog
 from Tools.Tools import Tools
+from Tools.Paths import project_path, resolve_project_path
 
 # ROS 导入
 import rospy
@@ -14,7 +15,7 @@ import sensor_msgs.point_cloud2 as pc2
 from std_msgs.msg import String
 from std_msgs.msg import Float32MultiArray
 
-MAIN_CONFIG_PATH = "./configs/main_config.yaml"
+MAIN_CONFIG_PATH = project_path("configs", "main_config.yaml")
 DRONE_ROS_MAX_MISSED_MAP_CYCLES = 5
 BLUE_DOUBLE_EFFECT_ENEMY_X_MIN = 17.939587
 RED_DOUBLE_EFFECT_ENEMY_X_MAX = 9.926868
@@ -636,6 +637,7 @@ class Messager:
 
 
 def load_config(config_path):
+    config_path = resolve_project_path(config_path)
     with open(config_path, encoding='Utf-8', mode='r') as config_file:
         return YAML().load(config_file)
 

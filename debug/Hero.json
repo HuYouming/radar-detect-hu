@@ -1,5 +1,5 @@
 {
-  "image": "/root/rm/radar-detect/debug/RM2026point.png",
+  "image": "debug/RM2026point.png",
   "coordinate_system": "field coordinates; x in [0, 28], y in [0, 15]",
   "conversion": "x = pixel_x / 1258 * 28; y = (675 - pixel_y) / 675 * 15",
   "points": [

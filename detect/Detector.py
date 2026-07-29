@@ -11,11 +11,12 @@ import os
 from collections import OrderedDict
 import rospy
 from std_msgs.msg import String
+from Tools.Paths import project_path, resolve_project_path
 
-MAIN_CONFIG_PATH = "./configs/main_config.yaml"
-VIDEO_PATH = "./data/shifan.mp4"
-DETECTOR_CONFIG_PATH = "./configs/detector_config.yaml"
-CAMERA_CONFIG_PATH = "./configs/bin_cam_config.yaml"
+MAIN_CONFIG_PATH = project_path("configs", "main_config.yaml")
+VIDEO_PATH = project_path("data", "shifan.mp4")
+DETECTOR_CONFIG_PATH = project_path("configs", "detector_config.yaml")
+CAMERA_CONFIG_PATH = project_path("configs", "bin_cam_config.yaml")
 CAMERA_NAME = "new_cam"
 READY_TOPIC = "/radar/main_ready"
 
@@ -44,22 +45,25 @@ def build_capture(mode, video_path, camera_config_path, camera_name):
 class Detector:
     def __init__(self, detector_config_path):
         # 加载配置文件
+        detector_config_path = resolve_project_path(detector_config_path)
         self.cfg = YAML().load(open(detector_config_path, encoding='Utf-8', mode='r'))
+        for name, path in self.cfg.get('path', {}).items():
+            self.cfg['path'][name] = str(resolve_project_path(path))
         self.capture = None
 
         # flag
         self.is_record = self.cfg['is_record']
         self.record_fps = self.cfg['record_fps']
         if self.is_record:
-            save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
+            save_video_folder_path = project_path("data", "train_record")
             today = time.strftime("%Y%m%d", time.localtime())  # 今日日期，例如2024年5月6日则为20240506
-            today_video_folder_path = save_video_folder_path + today + "/"  # 今日的视频文件夹
+            today_video_folder_path = save_video_folder_path / today
             if not os.path.exists(today_video_folder_path):  # 当天的视频文件夹不存在则创建
                 os.makedirs(today_video_folder_path)
             video_name = time.strftime("%H%M%S", time.localtime())  # 视频名称，以时分秒命名，19：29：30则为192930
-            video_save_path = today_video_folder_path + video_name + ".mp4"  # 视频保存路径
+            video_save_path = today_video_folder_path / f"{video_name}.mp4"
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            self.out = cv2.VideoWriter(video_save_path, fourcc, self.record_fps, (4024 , 3036))
+            self.out = cv2.VideoWriter(str(video_save_path), fourcc, self.record_fps, (4024 , 3036))
         else:
             self.out = None
 
@@ -67,7 +71,7 @@ class Detector:
         print('Loading Car Model')
         # 打印绝对路径
         # print(self.cfg['path']['stage_one_path'])
-        self.model_car = YOLO(self.cfg['path']['stage_one_path'] , task = "detect")
+        self.model_car = YOLO(self.cfg['path']['stage_one_path'], task="detect")
 
         self.model_car2 = YOLO(self.cfg['path']['stage_two_path'])
         print('Done\n')
@@ -665,11 +669,11 @@ def main():
 #     return int(label)
 #
 # # 加载配置文件
-# main_cfg_path = "../configs/main_config.yaml"
-# binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
+# main_cfg_path = project_path("configs", "main_config.yaml")
+# binocular_camera_cfg_path = project_path("configs", "bin_cam_config.yaml")
 # main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
 # bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
-# detector_config_path = "../configs/detector_config.yaml"
+# detector_config_path = project_path("configs", "detector_config.yaml")
 # def main():
 #     print("Loading right camera")
 #     # capture初始化

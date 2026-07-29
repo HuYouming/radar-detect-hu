@@ -1,6 +1,4 @@
 import cv2
-import sys
-sys.path.append("..")
 from camera_locator.point_picker import PointsPicker
 
 
@@ -59,5 +57,4 @@ def set_by_hand(image, obj):
 
 def set_by_detector():
     pass
-
 

@@ -10,9 +10,11 @@ from ctypes import *
 import numpy as np
 from stereo_camera.MvImport import MvCameraControl_class as hk
 from Log.Log import RadarLog
+from Tools.Paths import resolve_project_path
 
 class Capture:
     def __init__(self, binocular_camera_cfg_path, camera_name = 'new_cam'):
+        binocular_camera_cfg_path = resolve_project_path(binocular_camera_cfg_path)
         cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
         self.camera_name = camera_name

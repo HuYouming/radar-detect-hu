@@ -1,15 +1,14 @@
-import os
 import time
+from pathlib import Path
 
 class RadarLog:
     def __init__(self, logger_name):
         self.logger_name = logger_name
         self.timestamp = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
-        self.log_dir = '/home/radar/Radar/code/Radar_ros_2026/radar-detect/Log/logfile'
-        self.log_path = f'{self.log_dir}/{self.logger_name}_{self.timestamp}.log'
+        self.log_dir = Path(__file__).resolve().parent / 'logfile'
+        self.log_path = self.log_dir / f'{self.logger_name}_{self.timestamp}.log'
         # 确保log目录存在
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
 
     def log(self, message):
         try:
