@@ -4,7 +4,7 @@ import threading
 import time
 import open3d as o3d
 from collections import deque
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, String
 from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header
 import struct
@@ -83,6 +83,7 @@ TABLE_PITCH_MIN = 4.23
 TABLE_PITCH_MAX = 12.0
 TABLE_PITCH_PERIOD = 4.0
 TABLE_PUBLISH_HZ = 20.0
+ANGLE_PUBLISH_HZ = 100.0
 
 DRONE_MAP_PATH = str(project_path("RM2026_map.pcd"))
 DRONE_LIDAR_TOPIC = "/livox/lidar"
@@ -257,6 +258,12 @@ class LidarTracker:
         self.tracked_center_gimbal = None
         self.tracked_confidence = 0.0
 
+        # ========== 角度发送状态 ==========
+        self.angle_lock = threading.Lock()
+        self.radar_angles = [0.0, 0.0]
+        self.radar_target_detected = False
+        self.gimbal_feedback_angles = None
+
         self.lidar2gimbal = np.eye(4)
         self.lidar2gimbal[:3, :3] = ROTATION_MATRIX
         self.lidar2gimbal[:3, 3] = TRANSITION_VECTOR
@@ -278,8 +285,14 @@ class LidarTracker:
 
         # ========== ROS 通信 ==========
         self.lidar_sub = rospy.Subscriber(self.lidar_topic, PointCloud2, self.lidar_callback)
+        self.gimbal_feedback_sub = rospy.Subscriber(
+            "/gimbal/angle_feedback", String, self.gimbal_feedback_callback
+        )
         self.yawpitch_pub = rospy.Publisher("/init_yawpitch", Float32MultiArray, queue_size=10)
         self.drone_field_xyz_pub = rospy.Publisher("/drone_field_xyz", PointCloud2, queue_size=10)
+        self.angle_publish_timer = rospy.Timer(
+            rospy.Duration(1.0 / ANGLE_PUBLISH_HZ), self._publish_angles_timer
+        )
 
         rospy.loginfo("=" * 60)
         rospy.loginfo("LiDAR Tracker Node [目标锁定版]")
@@ -290,6 +303,7 @@ class LidarTracker:
             rospy.loginfo(f"录制目录: {self.record_dir}")
         rospy.loginfo("追踪策略: 锁定高分目标，静止后持续追踪")
         rospy.loginfo("释放条件: 丢失1秒 / 静止5秒且低分 / 出现明显更高分目标")
+        rospy.loginfo(f"角度发送频率: {ANGLE_PUBLISH_HZ:.0f} Hz")
         rospy.loginfo("=" * 60)
 
     def _resolve_map_path(self, path):
@@ -450,6 +464,48 @@ class LidarTracker:
 
         except Exception as e:
             rospy.logerr_throttle(5.0, f"LiDAR callback error: {e}")
+
+    def gimbal_feedback_callback(self, msg):
+        data = msg.data.strip()
+        if data.lower() == "none":
+            with self.angle_lock:
+                self.gimbal_feedback_angles = None
+            return
+
+        try:
+            parts = data.split(',')
+            if len(parts) != 2:
+                raise ValueError("expected yaw,pitch")
+            yaw = float(parts[0].strip())
+            pitch = float(parts[1].strip())
+            if not np.isfinite(yaw) or not np.isfinite(pitch):
+                raise ValueError("angle is not finite")
+        except (TypeError, ValueError):
+            rospy.logwarn_throttle(5.0, f"Invalid /gimbal/angle_feedback data: {data!r}")
+            with self.angle_lock:
+                self.gimbal_feedback_angles = None
+            return
+
+        with self.angle_lock:
+            self.gimbal_feedback_angles = [yaw, pitch]
+
+    def _set_radar_angles(self, yaw, pitch, target_detected=True):
+        with self.angle_lock:
+            self.radar_angles = [float(yaw), float(pitch)]
+            self.radar_target_detected = target_detected
+
+    def _publish_angles_timer(self, _event):
+        with self.angle_lock:
+            if self.angle_mode == "table" or self.radar_target_detected:
+                angles = list(self.radar_angles)
+            elif self.gimbal_feedback_angles is not None:
+                angles = list(self.gimbal_feedback_angles)
+            else:
+                angles = [0.0, 0.0]
+
+        msg = Float32MultiArray()
+        msg.data = angles
+        self.yawpitch_pub.publish(msg)
 
     def transform_lidar_to_world(self, points_lidar, T):
         ones = np.ones((points_lidar.shape[0], 1))
@@ -1075,8 +1131,6 @@ class LidarTracker:
             with self.target_lock:
                 locked = self.locked_target
 
-            msg = Float32MultiArray()
-
             if locked is not None and locked.is_active:
                 # 使用平滑后的位置
                 smooth_center = locked.get_smoothed_position()
@@ -1093,9 +1147,8 @@ class LidarTracker:
                 yaw, pitch = self.calculate_yaw_pitch(center_gimbal)
                 yaw_deg = np.degrees(yaw) + YAW_OFFSET
                 pitch_deg = -(np.degrees(pitch)) + PITCH_OFFSET
-                msg.data = [yaw_deg, pitch_deg]
-                self.yawpitch_pub.publish(msg)
-                self.logger.log(f"Publishing gimbal angles: yaw={yaw_deg:.1f}°, pitch={pitch_deg:.1f}°")
+                self._set_radar_angles(yaw_deg, pitch_deg)
+                self.logger.log(f"Updated gimbal angles: yaw={yaw_deg:.1f}°, pitch={pitch_deg:.1f}°")
 
                 status = "LOCKED" if locked.static_count < 10 else "LOCKED-STATIC"
                 rospy.loginfo(f"{status}: id={locked.cluster_id}, "
@@ -1107,8 +1160,7 @@ class LidarTracker:
                 self._publish_drone_field_xyz(smooth_center)
             else:
                 rospy.logwarn("No locked target")
-                msg.data = [0.0, 0.0]
-                self.yawpitch_pub.publish(msg)
+                self._set_radar_angles(0.0, 0.0, target_detected=False)
 
             # ========== 更新可视化 ==========
             foreground_points = self.remove_background_points(all_points_world.copy())
@@ -1172,10 +1224,8 @@ class LidarTracker:
             yaw_deg = yaw_values[yaw_idx]
             pitch_deg = pitch_mid + pitch_amp * np.sin(2.0 * np.pi * elapsed / period)
 
-            msg = Float32MultiArray()
-            msg.data = [float(yaw_deg), float(pitch_deg)]
-            self.yawpitch_pub.publish(msg)
-            self.logger.log(f"Table angles: yaw={yaw_deg:.2f}°, pitch={pitch_deg:.2f}°")
+            self._set_radar_angles(yaw_deg, pitch_deg)
+            self.logger.log(f"Table angles updated: yaw={yaw_deg:.2f}°, pitch={pitch_deg:.2f}°")
 
             if yaw_idx == len(yaw_values) - 1:
                 yaw_direction = -1

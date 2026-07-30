@@ -110,6 +110,18 @@ class ReceiverProtocolTest(unittest.TestCase):
 
 
 class MessagerProtocolTest(unittest.TestCase):
+    def test_map_frame_uses_sequence_one(self):
+        sender = Sender.__new__(Sender)
+        sender.SOF = struct.pack("B", 0xA5)
+        sender.seq = 0
+        sender.get_crc8_check_byte = lambda data: 0xAB
+        sender.get_crc16_check_byte = lambda data: 0x1234
+
+        frame = sender.generate_all_location_info([[0.0, 0.0] for _ in range(12)])
+
+        self.assertEqual(frame[3], 1)
+        self.assertEqual(struct.unpack("<H", frame[5:7])[0], 0x0305)
+
     def test_blue_requests_double_effect_when_two_targets_cross_x_threshold(self):
         messager = build_messager_for_decision()
         messager.my_color = "Blue"
