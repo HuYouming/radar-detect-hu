@@ -334,7 +334,7 @@ class Detector:
 
 
         
-        results = self.model_car2.predict(roi_list, conf=0.5, iou=0.7 , device = 0 ,verbose = False  )
+        results = self.model_car2.predict(roi_list, conf=0.5, iou=0.7 , device = 'cpu' ,verbose = False  )
         if len(results) == 0:  # no detect
             return -1
 

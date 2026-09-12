@@ -14,7 +14,7 @@ import rospy
 from std_msgs.msg import String
 from Tools.Paths import project_path
 
-mode = "camera" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
+mode = "video" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
 save_video = False # 是否保存视频
 ready_topic = "/radar/main_ready"
 
@@ -35,7 +35,7 @@ def get_new_box(xyxy,xywh):
     if y > 2064 / 2:
         # 计算新的x1和y1
         new_x1 = x1+w/2
-        new_y1 = y1+h/2 + h/9 # 这里是为了更准确的定位车底盘位置
+        new_y1 = y1+h/2+h/9# 这里是为了更准确的定位车底盘位置
 
     else:
         new_x1 = x1+w/2

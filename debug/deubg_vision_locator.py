@@ -16,9 +16,11 @@ from Lidar.Converter import Converter
 from Lidar.vision_locator import Vision_Locator
 
 
-DEFAULT_VIDEO_PATH = os.path.join(REPO_ROOT, "data", "video.avi")
+DEFAULT_VIDEO_PATH = os.path.join(REPO_ROOT, "data", "shifan.mp4")
 DEFAULT_CONVERTER_CONFIG = os.path.join(REPO_ROOT, "configs", "converter_config.yaml")
 DEFAULT_CAMERA_CONFIG = os.path.join(REPO_ROOT, "configs", "bin_cam_config.yaml")
+# debug 脚本专用 real_points_26(与实际项目的 real_points_25 不同套):
+# 顺序必须与 Converter.real_points_26 完全一致: 大符/塔/堡垒/塔/英雄高地
 CALIBRATION_POINT_NAMES = [
     "enemy_Base_25",
     "enemy_Tower_25",
@@ -73,12 +75,12 @@ def read_debug_frame(args):
     return image
 
 
-def pick_five_points(image):
+def pick_five_points(image, names=None):
     anchor = Anchor()
     picker = PointsPicker()
-    picker.caller(image, anchor)
+    picker.caller(image, anchor, names=names)
     while len(anchor) < 5:
-        picker.resume(anchor)
+        picker.resume(anchor, names=names)
 
     pixel_points = np.array(anchor.vertexes, dtype=np.float32)
     if len(pixel_points) != 5:
@@ -87,7 +89,8 @@ def pick_five_points(image):
 
 
 def solve_field_to_camera(converter, pixel_points):
-    world_points = np.array(converter.real_points_26, dtype=np.float32)
+    # debug 脚本专用 real_points_26(与提示顺序/反投影绘制一致)
+    world_points = np.array(converter.real_points_25, dtype=np.float32)
     ok, rotation_vector, translation_vector = cv2.solvePnP(
         world_points,
         pixel_points,
@@ -190,6 +193,7 @@ def draw_text_with_outline(image, text, origin, color, scale=0.65, thickness=2):
 
 def draw_calibration_projection(image, converter, rotation_vector, translation_vector, pixel_points):
     canvas = image.copy()
+    # 与 solve_field_to_camera 同用 real_points_25(与实际项目的 25 组不同)
     world_points = np.array(converter.real_points_25, dtype=np.float32)
     projected_points, _ = cv2.projectPoints(
         world_points,
@@ -237,7 +241,7 @@ def main():
 
     print("请按 Converter.real_points_25 的顺序点击 5 个标定点，按 q 结束当前点选窗口。")
     print("顺序: " + ", ".join(CALIBRATION_POINT_NAMES))
-    pixel_points = pick_five_points(image)
+    pixel_points = pick_five_points(image, names=CALIBRATION_POINT_NAMES)
 
     rotation_vector, translation_vector, field_to_camera_matrix = solve_field_to_camera(converter, pixel_points)
     locator = Vision_Locator(

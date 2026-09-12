@@ -22,7 +22,7 @@ lidar:
   lidar_topic_name: "/centroid_points" # 点云发布话题名字
 
 communication:
-  enabled: true # 调试时没有下位机串口可改为 false
+  enabled: false # 调试时没有下位机串口可改为 false
   send_transport: 'serial' # Messager 发送端保持串口；Receiver->Messager 状态同步使用 ROS
   position_topic: '/messge/position'
   receiver_state_topic: '/receiver/state'

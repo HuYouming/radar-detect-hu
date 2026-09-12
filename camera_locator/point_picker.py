@@ -49,6 +49,7 @@ class PointsPicker:
         self.raw_image = None
         self.zoomed_image = None
         self.points_to_display = []
+        self.point_names = None  # 可选: 标定点顺序提示名(如 ["敌方基地", ...])
 
         self.window = "set anchor"
         self.window_position = [0,0]
@@ -81,6 +82,7 @@ class PointsPicker:
                                 int(corresponding_point[1])]
             self.points_to_display.append(corresponding_point)
             param[0].append(quantified_point)
+            self._announce_point(param[0])
             self.display()
             pass
         else:
@@ -104,8 +106,33 @@ class PointsPicker:
                         1.0,
                         (0, 0, 255),
                         thickness=1)
+        self._draw_hint()
         cv2.imshow(self.window, self.image_to_display)
 
+
+    def _announce_point(self, anchor):
+        """点击后打印刚记录的第 n 点(若提供了提示名则带名称)。"""
+        n = len(anchor) if anchor is not None else len(self.points_to_display)
+        name = ""
+        if self.point_names and 0 < n <= len(self.point_names):
+            name = ": %s" % self.point_names[n - 1]
+        print("[标定] 第 %d 点已记录%s" % (n, name))
+
+    def _draw_hint(self):
+        """在窗口左上角显示当前进度与下一个标定目标。"""
+        n = len(self.points_to_display)
+        if self.point_names:
+            total = len(self.point_names)
+            if n < total:
+                hint = "请点第 %d/%d 点: %s" % (n + 1, total, self.point_names[n])
+            else:
+                hint = "已点完 %d 点, 按 q 结束" % total
+        else:
+            hint = "已点 %d 点(按 q 结束)" % n
+        cv2.putText(self.image_to_display, hint, (12, 34),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 4)
+        cv2.putText(self.image_to_display, hint, (12, 34),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 1)
 
     def check_location(self, image_size):
         for i in range(2):
@@ -192,7 +219,8 @@ class PointsPicker:
                                                self.window_position[0]:self.window_position[0] + self.window_size.w]
         self.image_to_display_copy = self.image_to_display.copy()
 
-    def caller(self, image, anchor):
+    def caller(self, image, anchor, names=None):
+        self.point_names = names
         self.init_frame(image)
 
         cv2.namedWindow(self.window, cv2.WINDOW_NORMAL)
@@ -214,7 +242,9 @@ class PointsPicker:
                 break
         cv2.destroyAllWindows()
 
-    def resume(self, anchor):
+    def resume(self, anchor, names=None):
+        if names is not None:
+            self.point_names = names
         cv2.namedWindow(self.window, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(self.window, self.window_size.w, self.window_size.h)
         cv2.moveWindow(self.window, 200, 100)

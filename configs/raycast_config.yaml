@@ -1,0 +1,11 @@
+raycast:
+  enabled: true
+  # mesh 由 RM2026_map.pcd 重建(mm→m,坐标系不变),顶点位于场地坐标系(28×15 m,红方左下角 (0,0))
+  # Converter 标定点/透视链在 legacy 系,经 _legacy_to_field_pose 桥接为场地系 pose 后打射线
+  mesh_path: "RM2026_map_m.ply"
+  # mesh 顶点即场地坐标,命中点直接是场地坐标,无坐标转换
+  coordinate_system: "field"
+  # PLY 顶点与 PnP 标定点均为米
+  unit: "m"
+  # raycast 未命中/不可用时回退原透视定位
+  fallback_to_perspective: true

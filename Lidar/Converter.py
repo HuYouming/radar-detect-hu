@@ -3,6 +3,8 @@ import numpy as np
 from camera_locator.anchor import Anchor
 from camera_locator.point_picker import PointsPicker
 from .vision_locator import Vision_Locator
+from .units import require_meter_unit, validate_meter_vector
+from .raycast_locator import RaycastLocator
 import cv2
 import yaml
 from Log.Log import RadarLog
@@ -90,7 +92,29 @@ class Converter:
         self.vision_locator = None
         self.armor_height = 0.15
 
+        # ---- raycast 配置(可选;缺省关闭,单位缺省米) ----
+        self.raycast_locator = None
+        self.raycast_config = {}
+        raycast_cfg_path = resolve_project_path('configs/raycast_config.yaml')
+        if raycast_cfg_path.exists():
+            with open(str(raycast_cfg_path), 'r', encoding='utf-8') as rf:
+                raycast_cfg = yaml.safe_load(rf) or {}
+            self.raycast_config = raycast_cfg.get('raycast', {})
+        self.mesh_unit = require_meter_unit(
+            self.raycast_config.get('unit', 'm'), 'Converter raycast mesh')
 
+
+
+    def _calibration_hints_25(self):
+        """real_points_25 标定点点选提示: 结构名 + 当前阵营视角下的方位。"""
+        base = ["敌方基地", "敌方前哨塔", "我方堡垒", "我方前哨塔", "敌方堡垒右前角"]
+        if self.global_color == "Blue":
+            tips = ["最远端端线中央高台", "近-中高柱", "最远端低台",
+                    "远-中高柱", "近端半场堡垒角"]
+        else:
+            tips = ["最远端端线中央高台", "远-中高柱", "近端低台(脚下侧)",
+                    "近-中高柱", "远端半场堡垒角"]
+        return ["%s(%s)" % (b, t) for b, t in zip(base, tips)]
 
     def camera_to_field_init(self, capture=None, img = None):
         # 初始化要用的类
@@ -113,7 +137,11 @@ class Converter:
             # 接收按键，如果y则进入下一步，否则重选一张
             key = cv2.waitKey(0)
             if key == ord('y'):
-                pp.caller(image, anchor)
+                calib_hints = self._calibration_hints_25()
+                print("请按顺序点击 5 个标定点(点选窗口会显示当前第几点):")
+                for i, hint in enumerate(calib_hints):
+                    print("  %d. %s" % (i + 1, hint))
+                pp.caller(image, anchor, names=[h.split('(')[0] for h in calib_hints])
                 true_points = np.array(self.real_points_25, dtype=np.float32)
                 pixel_points = np.array(anchor.vertexes, dtype=np.float32)
                 print(pixel_points)
@@ -135,7 +163,13 @@ class Converter:
                     continue
                 rotation_matrix = cv2.Rodrigues(rotation_vector)[0]  # 从赛场到相机的旋转矩阵
                 self.field_to_camera_R = rotation_matrix
-                self.field_to_camera_T = translation_vector
+                # 米制防线: 标定点/透视世界点均为米,拦截毫米或异常数量级平移
+                self.field_to_camera_T = validate_meter_vector(
+                    translation_vector, 'PnP translation').reshape(3, 1)
+                if np.linalg.norm(self.field_to_camera_T) > 100.0:
+                    print('PnP translation implausibly large for meters; '
+                          'check calibration-point units (must be meters).')
+                    continue
                 # self.field_to_camera_T = np.array([x * 1000 for x in translation_vector],dtype=np.float32)
                 # 将旋转矩阵R和平移向量T合并成一个4x4的齐次坐标变换矩阵
                 # 注意这里使用 rotation_matrix 和 translation_vector，前者是赛场到相机的旋转矩阵，后者是对应的平移向量
@@ -154,17 +188,72 @@ class Converter:
     def vision_locator_init(self,img=None):
         self.vision_locator = Vision_Locator(intrinsic_matrix=self.intrinsic_matrix,
                                              dist_coeffs=self.distortion_matrix,
-                                             world_rvec=self.field_to_camera_R, 
+                                             world_rvec=self.field_to_camera_R,
                                              world_tvec=self.field_to_camera_T,
                                              extrinsic_matrix=self.field_to_camera_matrix,img=img)
+        self._init_raycast_locator()
+
+    # ------------------------------------raycast------------------------------------#
+    def _legacy_to_field_pose(self):
+        """Convert the PnP pose (legacy frame) to the field frame.
+
+        标定点/透视世界点位于 legacy 系(y_legacy = y_field - 15)。由
+            X_cam = R·X_leg + T_leg,  X_leg = X_field - (0, 15, 0)
+        得场地系 pose:
+            R_field = R,  T_field = T_leg - R·(0, 15, 0)
+        """
+        offset = np.array([0.0, 15.0, 0.0])
+        t_field = self.field_to_camera_T.reshape(3) - self.field_to_camera_R @ offset
+        return self.field_to_camera_R, t_field.reshape(3, 1)
+
+    def _init_raycast_locator(self):
+        cfg = self.raycast_config
+        if not cfg.get('enabled', False):
+            return
+        mesh_path = resolve_project_path(cfg.get('mesh_path', 'RM2026_map_m.ply'))
+        if not mesh_path.exists():
+            print('Raycast mesh not found: %s' % mesh_path)
+            return
+        try:
+            r_field, t_field = self._legacy_to_field_pose()
+            self.raycast_locator = RaycastLocator(
+                camera_matrix=self.intrinsic_matrix,
+                dist_coeffs=self.distortion_matrix,
+                field_to_camera_R=r_field,
+                field_to_camera_T=t_field,
+                mesh_path=mesh_path,
+                coordinate_system=cfg.get('coordinate_system', 'field'),
+                unit=cfg.get('unit', self.mesh_unit),
+            )
+            print('Raycast locator initialized: %s' % mesh_path)
+        except (ImportError, ValueError, RuntimeError, OSError) as exc:
+            self.raycast_locator = None
+            print('Raycast unavailable; using perspective fallback: %s' % exc)
+
+    def _raycast_result(self, box, t):
+        """raycast 命中 → [x, y, z, t](场地系,米);未命中/禁用返回 None。"""
+        if self.raycast_locator is None:
+            return None
+        values = np.asarray(box, dtype=np.float64).reshape(-1)
+        if values.size < 2:
+            return None
+        field_point = self.raycast_locator.pixel_to_world(values[:2])
+        if field_point is None:
+            return None
+        return [float(field_point[0]), float(field_point[1]),
+                float(field_point[2]), t]
 
 
     def camera_results(self, box,t):
         '''
         Args:
             box: 一个检测框的结果
-        Returns: 坐标值
+        Returns: 坐标值 [x,y,z,t]
         '''
+        # raycast 优先: 命中即场地系坐标;未命中/未启用则回退透视
+        raycast_result = self._raycast_result(box, t)
+        if raycast_result is not None:
+            return raycast_result
         x, y, w, h = box
         # 原图中装甲板的中心下沿作为待仿射变化的点
         u = np.clip(x, 0, self.width - 1)
