@@ -111,4 +111,27 @@ class RaycastLocator:
         # project-specific coordinate mapping before this point.
         return hit.astype(np.float64)
 
+    def plane_intersect(self, pixel, z_plane):
+        """Ray-plane intersection with the horizontal plane z = z_plane (mesh frame).
+
+        用于分层定位: 命中 z 归入已知高度层后, 用层平面交点给出稳定的
+        水平坐标, 避免 mesh 地面起伏/孔洞导致 x,y 抖动。
+        """
+        points = np.array([[[float(pixel[0]), float(pixel[1])]]], dtype=np.float64)
+        if np.any(self.dist_coeffs):
+            points = cv2.undistortPoints(
+                points, self.camera_matrix, self.dist_coeffs, P=self.camera_matrix
+            )
+        u, v = points[0, 0]
+        direction = self.rotation.T @ np.linalg.solve(
+            self.camera_matrix, np.array([u, v, 1.0], dtype=np.float64)
+        )
+        origin = (-self.rotation.T @ self.translation).reshape(3)
+        if abs(direction[2]) < 1e-9:
+            return None
+        t = (float(z_plane) - origin[2]) / direction[2]
+        if not np.isfinite(t) or t <= 0.0:
+            return None
+        return (origin + t * direction).astype(np.float64)
+
     __call__ = pixel_to_world

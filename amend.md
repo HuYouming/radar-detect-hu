@@ -32,3 +32,21 @@
     - debug/deubg_vision_locator.py：pick_five_points 传入 CALIBRATION_POINT_NAMES(26 组)，点选窗口同步显示顺序
     原因：25/26 两套点易记混(曾把第1点大符/基地点反导致 PnP 错配 ~12m)，把顺序提示固化进代码避免人为记序
 15. 添加 DEPLOY.md：Ubuntu 20.04 + NVIDIA GPU 部署清单(驱动/CUDA/ROS Noetic/conda 依赖/项目拷贝清单/三终端启动/常见检查/实机补充)
+16. raycast 缺陷补偿(命中z过滤+多射线地面探测):
+    - Lidar/Converter.py _raycast_result：底边像素向下探测 probe_offsets_px 多根射线，取命中 z 最小(最贴地面)者；
+      所有命中 z 均高于 ground_max_z(默认0.30m)时视为撞到结构/重建孔洞，返回 None 回退透视
+    - configs/raycast_config.yaml：新增 ground_max_z、probe_offsets_px 可调参数
+    原因：mesh 无车辆模型，射线可能穿透车身或命中车旁高台/孔洞，造成坐标跳变；多射线+z过滤消除此类帧
+
+17. 修复"坐标飘"：_raycast_result 由"多射线取 z 最小"改为"主射线优先+备用探测"
+    - 原因：三根射线命中 z 均≈地面时 min(z) 逐帧随机选择不同偏移像素，导致命中点水平跳变(x 不稳)
+    - 现逻辑：主射线 z 合格直接用(帧间稳定)；主射线撞结构时才用下探备用射线兜底
+
+18. 分层定位(仿老算法分层, 嫁接 raycast):
+    - Lidar/raycast_locator.py：新增 plane_intersect(pixel, z) —— 射线与水平面 z=z 求交
+    - Lidar/Converter.py _raycast_result：height_layers 非空时, 主射线命中z归入最近已知高度层,
+      输出"层平面交点 + 层高度"(z 离散稳定, 水平坐标平滑, 消除地面起伏/孔洞抖动);
+      命中z高于最高层+0.3m 视为撞结构回退透视; 层表为空则走原单射线逻辑
+    - configs/raycast_config.yaml：新增 height_layers(默认 [0.0,0.15,0.3,0.6,1.3])
+    原因：raycast 命中 z 随 mesh 地面起伏在 0.03~0.13 等连续跳变, 平台高度无法稳定判定;
+    分层把 z 钉在已知层上, 并顺带用层平面交点稳定 x/y

@@ -1,5 +1,5 @@
 raycast:
-  enabled: true
+  enabled: false
   # mesh 由 RM2026_map.pcd 重建(mm→m,坐标系不变),顶点位于场地坐标系(28×15 m,红方左下角 (0,0))
   # Converter 标定点/透视链在 legacy 系,经 _legacy_to_field_pose 桥接为场地系 pose 后打射线
   mesh_path: "RM2026_map_m.ply"
@@ -9,3 +9,11 @@ raycast:
   unit: "m"
   # raycast 未命中/不可用时回退原透视定位
   fallback_to_perspective: true
+  # raycast 防护: 命中点高度超过该值(m)视为撞到结构而非地面, 丢弃回退透视
+  ground_max_z: 0.30
+  # 底边像素向下探测偏移(像素): 仅当主射线命中高度异常(撞结构/孔洞)时使用,
+  # 取第一个命中 z 合格者;正常情况只用主射线以保证帧间稳定
+  probe_offsets_px: [6.0, 12.0]
+  # 分层模式(仿老算法分层): 非空时启用。主射线命中z归入最近的已知高度层,
+  # 输出"层平面交点 + 层高度"(z离散稳定, 水平坐标平滑)。设为 [] 关闭(走单射线逻辑)
+  height_layers: [0.0, 0.15, 0.3, 0.6, 1.3]

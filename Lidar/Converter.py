@@ -231,17 +231,46 @@ class Converter:
             print('Raycast unavailable; using perspective fallback: %s' % exc)
 
     def _raycast_result(self, box, t):
-        """raycast 命中 → [x, y, z, t](场地系,米);未命中/禁用返回 None。"""
+        """raycast 命中 → [x, y, z, t](场地系,米);未命中/撞结构/禁用返回 None。
+
+        防护(raycast 缺陷补偿):
+        - 多射线: 底边像素向下多打几根, 取命中 z 最小(最贴地面)的一根,
+          绕开高台侧壁与重建孔洞的穿透;
+        - z 过滤: 所有命中高度均高于 ground_max_z 时视为撞到结构(非地面),
+          丢弃本帧, 由调用方回退透视/卡尔曼。
+        """
         if self.raycast_locator is None:
             return None
         values = np.asarray(box, dtype=np.float64).reshape(-1)
         if values.size < 2:
             return None
-        field_point = self.raycast_locator.pixel_to_world(values[:2])
-        if field_point is None:
-            return None
-        return [float(field_point[0]), float(field_point[1]),
-                float(field_point[2]), t]
+        u, v = float(values[0]), float(values[1])
+        max_z = float(self.raycast_config.get('ground_max_z', 0.30))
+        probe_px = self.raycast_config.get('probe_offsets_px', [6.0, 12.0])
+        layers = self.raycast_config.get('height_layers', None)
+
+        # ---- 分层模式(仿老算法分层): 命中z归入最近高度层, 输出层平面交点 ----
+        if layers:
+            main = self.raycast_locator.pixel_to_world((u, v))
+            if main is None:
+                return None
+            if main[2] > max(layers) + 0.30:
+                return None  # 命中远高于最高层 → 撞结构/异常, 回退透视
+            layer = min(layers, key=lambda zk: abs(zk - main[2]))
+            point = self.raycast_locator.plane_intersect((u, v), layer)
+            if point is None:
+                return None
+            return [float(point[0]), float(point[1]), float(layer), t]
+
+        # ---- 单射线模式: 主射线优先, 备用射线兜底 ----
+        main = self.raycast_locator.pixel_to_world((u, v))
+        if main is not None and main[2] <= max_z:
+            return [float(main[0]), float(main[1]), float(main[2]), t]
+        for offset in probe_px:
+            p = self.raycast_locator.pixel_to_world((u, v + float(offset)))
+            if p is not None and p[2] <= max_z:
+                return [float(p[0]), float(p[1]), float(p[2]), t]
+        return None
 
 
     def camera_results(self, box,t):
