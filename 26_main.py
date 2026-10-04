@@ -147,7 +147,8 @@ def add_circle(draw_payload, center, radius=5, color=(0, 0, 255), thickness=-1):
 
 
 if __name__ == '__main__':
-    video_path = project_path("data", "shifan.mp4")
+    # RADAR_VIDEO_PATH 供测试脚本覆盖视频源; 未设置时行为与原来完全一致
+    video_path = os.environ.get("RADAR_VIDEO_PATH") or project_path("data", "shifan.mp4")
     detector_config_path = project_path("configs", "detector_config.yaml")
     binocular_camera_cfg_path = project_path("configs", "bin_cam_config.yaml")
     main_config_path = project_path("configs", "main_config.yaml")
@@ -267,6 +268,10 @@ if __name__ == '__main__':
                         if is_debug:
                             add_circle(draw_payload, (new_xywh_box[0], new_xywh_box[1]), radius=8, color=(255, 0, 255))
                         center = converter.detection_main(new_xywh_box,t=stamp)
+                        if center is None:
+                            # raycast_only 模式: 射线打空/撞结构 → 丢弃该检测,
+                            # 不回退老算法(该车靠 CarList 生命周期逐渐过期)
+                            continue
                         center = converter.vision_locator.post_process(center, global_my_color)
 
                     # 将点转到赛场坐标系下
@@ -322,5 +327,8 @@ if __name__ == '__main__':
             main_rate.sleep()
     finally:
         print("finally")
-
+        try:
+            print("[loc] 定位统计: %s" % converter.localization_stats())
+        except Exception as exc:
+            print("[loc] 定位统计不可用: %s" % exc)
         cv2.destroyAllWindows()

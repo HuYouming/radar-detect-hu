@@ -50,3 +50,5 @@
     - configs/raycast_config.yaml：新增 height_layers(默认 [0.0,0.15,0.3,0.6,1.3])
     原因：raycast 命中 z 随 mesh 地面起伏在 0.03~0.13 等连续跳变, 平台高度无法稳定判定;
     分层把 z 钉在已知层上, 并顺带用层平面交点稳定 x/y
+
+19. 添加了test_localization.sh 启动脚本

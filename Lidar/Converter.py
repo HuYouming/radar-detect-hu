@@ -10,6 +10,35 @@ import yaml
 from Log.Log import RadarLog
 from Tools.Paths import resolve_project_path
 
+# 定位模式(配置在 configs/raycast_config.yaml 的 raycast.mode):
+#   raycast_only     只用 raycast; 打空/撞结构/不可用 → 丢弃该检测, 绝不使用老算法
+#   raycast_fallback raycast 优先, 未命中回退老透视算法(默认)
+#   perspective_only 只用老透视算法, 不加载 raycast 网格(省内存/启动时间)
+LOCALIZATION_MODES = ('raycast_only', 'raycast_fallback', 'perspective_only')
+DEFAULT_LOCALIZATION_MODE = 'raycast_fallback'
+
+
+def resolve_localization_mode(raycast_cfg):
+    """把 raycast 配置解析成三种定位模式之一。
+
+    优先读 raycast.mode; 没有该字段时按旧配置推导, 保证老 yaml 行为不变:
+        enabled: false                        -> perspective_only
+        enabled: true,  fallback_to_perspective: false -> raycast_only
+        enabled: true,  fallback_to_perspective: true  -> raycast_fallback
+    """
+    mode = str(raycast_cfg.get('mode', '') or '').strip()
+    if mode:
+        if mode not in LOCALIZATION_MODES:
+            raise ValueError(
+                "raycast.mode 非法: %r; 只能是 %s" % (mode, " / ".join(LOCALIZATION_MODES)))
+        return mode
+    if not bool(raycast_cfg.get('enabled', False)):
+        return 'perspective_only'
+    if not bool(raycast_cfg.get('fallback_to_perspective', True)):
+        return 'raycast_only'
+    return DEFAULT_LOCALIZATION_MODE
+
+
 class Converter:
     def __init__(self, my_color, data_loader_path='parameters.yaml'):
         self.logger = RadarLog("Converter")
@@ -102,6 +131,39 @@ class Converter:
             self.raycast_config = raycast_cfg.get('raycast', {})
         self.mesh_unit = require_meter_unit(
             self.raycast_config.get('unit', 'm'), 'Converter raycast mesh')
+
+        # ---- 定位模式开关(改 configs/raycast_config.yaml 的 raycast.mode) ----
+        self.localization_mode = resolve_localization_mode(self.raycast_config)
+        self.use_raycast = self.localization_mode != 'perspective_only'
+        self.fallback_to_perspective = self.localization_mode == 'raycast_fallback'
+        # 定位来源统计(每 stats_print_every 次检测打印一行; 设 0 关闭)
+        self.stats_print_every = int(self.raycast_config.get('stats_print_every', 200))
+        self.raycast_hit_count = 0
+        self.raycast_miss_count = 0
+        self.raycast_drop_count = 0
+        self.perspective_count = 0
+        self._loc_processed = 0
+        print('[loc] 定位模式: %s (raycast=%s, 回退老算法=%s)' % (
+            self.localization_mode, self.use_raycast, self.fallback_to_perspective))
+
+    def localization_stats(self):
+        """定位来源统计, 便于确认当前到底在走哪条链路。"""
+        return {
+            'mode': self.localization_mode,
+            'raycast_hit': self.raycast_hit_count,
+            'raycast_miss': self.raycast_miss_count,
+            'raycast_dropped': self.raycast_drop_count,
+            'perspective_used': self.perspective_count,
+        }
+
+    def _note_localization(self):
+        self._loc_processed += 1
+        if self.stats_print_every <= 0:
+            return
+        if self._loc_processed % self.stats_print_every == 0:
+            print('[loc] mode=%s 已处理 %d: raycast命中 %d | 打空 %d | 丢弃 %d | 老算法 %d' % (
+                self.localization_mode, self._loc_processed, self.raycast_hit_count,
+                self.raycast_miss_count, self.raycast_drop_count, self.perspective_count))
 
 
 
@@ -208,11 +270,17 @@ class Converter:
 
     def _init_raycast_locator(self):
         cfg = self.raycast_config
-        if not cfg.get('enabled', False):
+        if not self.use_raycast:
+            print('[loc] perspective_only: 不加载 raycast 网格')
             return
         mesh_path = resolve_project_path(cfg.get('mesh_path', 'RM2026_map_m.ply'))
         if not mesh_path.exists():
-            print('Raycast mesh not found: %s' % mesh_path)
+            msg = '找不到 raycast 网格: %s' % mesh_path
+            if self.localization_mode == 'raycast_only':
+                raise RuntimeError(
+                    msg + '(raycast_only 模式不允许回退, 请修正 configs/raycast_config.yaml '
+                          '的 mesh_path, 或把 mode 改成 raycast_fallback)')
+            print(msg + ' -> 本帧起只能走老算法')
             return
         try:
             r_field, t_field = self._legacy_to_field_pose()
@@ -228,6 +296,9 @@ class Converter:
             print('Raycast locator initialized: %s' % mesh_path)
         except (ImportError, ValueError, RuntimeError, OSError) as exc:
             self.raycast_locator = None
+            if self.localization_mode == 'raycast_only':
+                raise RuntimeError(
+                    'raycast_only 模式下 raycast 初始化失败, 拒绝回退老算法: %s' % exc)
             print('Raycast unavailable; using perspective fallback: %s' % exc)
 
     def _raycast_result(self, box, t):
@@ -277,12 +348,30 @@ class Converter:
         '''
         Args:
             box: 一个检测框的结果
-        Returns: 坐标值 [x,y,z,t]
+        Returns: 坐标值 [x,y,z,t]; 但 raycast_only 模式下未命中/撞结构时返回 None
+                     (调用方应丢弃该检测, 不要当成坐标使用)
+        定位模式由 configs/raycast_config.yaml 的 raycast.mode 决定:
+            raycast_only / raycast_fallback / perspective_only
         '''
-        # raycast 优先: 命中即场地系坐标;未命中/未启用则回退透视
-        raycast_result = self._raycast_result(box, t)
-        if raycast_result is not None:
-            return raycast_result
+        mode = self.localization_mode
+
+        # ---- 模式 1/2: raycast 优先 ----
+        if mode != 'perspective_only':
+            raycast_result = self._raycast_result(box, t)
+            if raycast_result is not None:
+                self.raycast_hit_count += 1
+                self._note_localization()
+                return raycast_result
+            self.raycast_miss_count += 1
+            if mode == 'raycast_only':
+                # 只用 raycast: 打空/撞结构就丢弃本帧该检测(老算法完全不参与),
+                # CarList 的生命周期机制会让该车逐渐过期, 不会发出错误坐标
+                self.raycast_drop_count += 1
+                self._note_localization()
+                return None
+            self._note_localization()
+
+        # ---- 模式 2/3: 老透视算法 ----
         x, y, w, h = box
         # 原图中装甲板的中心下沿作为待仿射变化的点
         u = np.clip(x, 0, self.width - 1)
@@ -291,6 +380,7 @@ class Converter:
         height = self.vision_locator.get_height(camera_point)
         [x, y] = self.vision_locator.parser(camera_point, height)
         y += 15 # 平移坐标系
+        self.perspective_count += 1
         return [x, y, height + self.vision_locator.armor_height, t]
 
     def detection_main(self, box,t):
@@ -298,7 +388,7 @@ class Converter:
 
         Args:
             box: yolo给的bbox，整车
-        Returns: 定位坐标值[x,y,z]
+        Returns: 定位坐标值[x,y,z]; raycast_only 模式下打空/撞结构时为 None
 
         '''
         return self.camera_results(box,t)

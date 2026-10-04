@@ -1,13 +1,33 @@
 raycast:
-  enabled: false
+  enabled: true
+
+  # ======================= 定位模式开关(只改这一行) =======================
+  # raycast_only     只用 raycast。射线打空/撞结构/网格不可用 → **丢弃该检测**,
+  #                  绝不使用老算法(该车靠 CarList 生命周期逐渐过期, 不会发错坐标)。
+  #                  注意: 网格路径写错或 open3d 不可用会直接报错退出, 不会偷偷降级。
+  # raycast_fallback raycast 优先, 未命中回退老透视算法(默认, 与改动前行为一致)。
+  # perspective_only 只用老透视算法, 完全**不加载** raycast 网格(省内存/启动时间)。
+  #
+  # 运行时会打印一行 [loc] 定位模式: ...; 之后每 stats_print_every 次检测打印
+  # 命中/打空/丢弃/老算法 的计数, 便于确认当前到底在走哪条链路。
+  mode: "raycast_fallback"
+
+  # 说明: 下面两个是旧开关, **mode 存在时被忽略**(仅为兼容老配置保留):
+  #   enabled: false                                -> perspective_only
+  #   enabled: true + fallback_to_perspective: false -> raycast_only
+  #   enabled: true + fallback_to_perspective: true  -> raycast_fallback
+  # 统计打印间隔(次); 0 = 关闭
+  stats_print_every: 200
+
   # mesh 由 RM2026_map.pcd 重建(mm→m,坐标系不变),顶点位于场地坐标系(28×15 m,红方左下角 (0,0))
   # Converter 标定点/透视链在 legacy 系,经 _legacy_to_field_pose 桥接为场地系 pose 后打射线
+  # 低模网格用 Tools/build_lowpoly_field.py 生成(见 Tools/FIELD_MESH.md)
   mesh_path: "RM2026_map_m.ply"
   # mesh 顶点即场地坐标,命中点直接是场地坐标,无坐标转换
   coordinate_system: "field"
   # PLY 顶点与 PnP 标定点均为米
   unit: "m"
-  # raycast 未命中/不可用时回退原透视定位
+  # raycast 未命中/不可用时回退原透视定位(仅 raycast_fallback 模式生效)
   fallback_to_perspective: true
   # raycast 防护: 命中点高度超过该值(m)视为撞到结构而非地面, 丢弃回退透视
   ground_max_z: 0.30

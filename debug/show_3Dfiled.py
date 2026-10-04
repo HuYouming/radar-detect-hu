@@ -1,6 +1,6 @@
 import open3d as o3d, numpy as np
 m = o3d.io.read_triangle_mesh(
-    "RM2026_map_m.ply")
+    "RM2026_field_lowpoly.ply")
 
 verts = np.asarray(m.vertices)
 tris  = np.asarray(m.triangles)

@@ -14,7 +14,8 @@ from std_msgs.msg import String
 from Tools.Paths import project_path, resolve_project_path
 
 MAIN_CONFIG_PATH = project_path("configs", "main_config.yaml")
-VIDEO_PATH = project_path("data", "shifan.mp4")
+# RADAR_VIDEO_PATH 供测试脚本覆盖视频源; 未设置时行为与原来完全一致
+VIDEO_PATH = os.environ.get("RADAR_VIDEO_PATH") or project_path("data", "shifan.mp4")
 DETECTOR_CONFIG_PATH = project_path("configs", "detector_config.yaml")
 CAMERA_CONFIG_PATH = project_path("configs", "bin_cam_config.yaml")
 CAMERA_NAME = "new_cam"

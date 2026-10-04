@@ -1345,3 +1345,37 @@ YOLO 框 -> 取框底部附近的一个像素点 -> 判断该点所在赛场区�
 3. pointPolygonTest: 判断检测点落在哪个区域
 4. getPerspectiveTransform + perspectiveTransform: 把图像点映射到赛场平面坐标
 ```
+
+---
+
+## 14. 定位模式开关（`configs/raycast_config.yaml` 的 `raycast.mode`）
+
+上面 1~13 节描述的是**老透视链路**。现在 raycast 已经并进同一条 `Converter.camera_results()`，
+用配置里的一个字段切换三条链路，不必改代码：
+
+| `raycast.mode` | 行为 | 打空/撞结构时 | 是否加载 raycast 网格 |
+|---|---|---|---|
+| `raycast_only` | 只用 raycast | **丢弃该检测**（返回 `None`），绝不使用老算法 | 是（加载失败直接报错退出） |
+| `raycast_fallback` | raycast 优先 | 回退老透视算法（默认，与加 raycast 之前行为一致） | 是 |
+| `perspective_only` | 只用老算法 | — | **否**（省内存与启动时间） |
+
+```yaml
+raycast:
+  enabled: true
+  mode: "raycast_fallback"      # 只改这一行
+  stats_print_every: 200        # 每 N 次检测打印一次来源统计; 0 = 关闭
+```
+
+要点：
+
+- **`raycast_only` 下打空即丢弃**。`Converter.detection_main()` 返回 `None`，`26_main.py` 遇到 `None`
+  就 `continue` 跳过本次检测（不进入 `CarList`）。该车不会发出错误坐标，而是靠 `CarList`
+  的 `life_span` 生命周期逐渐过期变为不可信。
+- **`raycast_only` 不做静默降级**：网格路径写错、open3d 缺失、外参/单位异常都会直接抛错退出，
+  避免"以为在用 raycast，其实一直在用老算法"。
+- **`raycast_fallback` 与 `perspective_only` 的区别**只在于谁优先；两者都能出结果。
+- 旧开关 `enabled` 与 `fallback_to_perspective` 在没有 `mode` 字段时仍按老语义推导，
+  老配置文件行为不变（映射关系见 `Lidar/Converter.py: resolve_localization_mode`）。
+- 运行时可观察：启动打印 `[loc] 定位模式: ...`，运行中每 `stats_print_every` 次打印
+  命中/打空/丢弃/老算法计数，退出时打印 `[loc] 定位统计: {...}`（也可调
+  `converter.localization_stats()`）。
