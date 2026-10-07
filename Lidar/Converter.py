@@ -328,6 +328,7 @@ class Converter:
             if main[2] > max(layers) + 0.30:
                 return None  # 命中远高于最高层 → 撞结构/异常, 回退透视
             layer = min(layers, key=lambda zk: abs(zk - main[2]))
+            print('[ray] u=%.0f v=%.0f mesh_z=%.4f -> layer=%.2f' % (u, v, main[2], layer)) 
             point = self.raycast_locator.plane_intersect((u, v), layer)
             if point is None:
                 return None

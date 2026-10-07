@@ -17,7 +17,7 @@ raycast:
   #   enabled: true + fallback_to_perspective: false -> raycast_only
   #   enabled: true + fallback_to_perspective: true  -> raycast_fallback
   # 统计打印间隔(次); 0 = 关闭
-  stats_print_every: 200
+  stats_print_every: 100
 
   # mesh 由 RM2026_map.pcd 重建(mm→m,坐标系不变),顶点位于场地坐标系(28×15 m,红方左下角 (0,0))
   # Converter 标定点/透视链在 legacy 系,经 _legacy_to_field_pose 桥接为场地系 pose 后打射线
@@ -36,4 +36,4 @@ raycast:
   probe_offsets_px: [6.0, 12.0]
   # 分层模式(仿老算法分层): 非空时启用。主射线命中z归入最近的已知高度层,
   # 输出"层平面交点 + 层高度"(z离散稳定, 水平坐标平滑)。设为 [] 关闭(走单射线逻辑)
-  height_layers: [0.0, 0.15, 0.3, 0.6, 1.3]
+  height_layers: [0.0, 0.125, 0.155, 0.195, 0.325, 0.475, 1.30]
